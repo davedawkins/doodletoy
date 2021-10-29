@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <UseLocalSutil>True</UseLocalSutil>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="UI.fs" />
+    <Compile Include="Server.fs" />
+    <Compile Include="Login.fs" />
+    <Compile Include="Chat.fs" />
+    <Compile Include="App.fs" />
+  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\..\..\fable-appwrite\src\FableAppwrite.fsproj" />
+        <PackageReference Include="Fable.Promise" Version="2.*" />
+    </ItemGroup>
+  <Choose>
+    <When Condition=" '$(UseLocalSutil)'=='True' ">
+        <ItemGroup>
+            <ProjectReference Include="..\..\..\Sutil\src\Sutil\Sutil.fsproj" />
+        </ItemGroup>
+    </When>
+    <When Condition=" '$(UseLocalSutil)'=='False' ">
+        <ItemGroup>
+            <PackageReference Include="Sutil" Version="1.0.0-*" />
+        </ItemGroup>
+    </When>
+  </Choose>
+</Project>
