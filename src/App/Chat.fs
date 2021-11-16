@@ -5,6 +5,8 @@ open Sutil.DOM
 open type Feliz.length
 open AppwriteSdk
 open UI
+open Types
+open Types.Schema
 
 type Model = {
         User : User
@@ -12,20 +14,20 @@ type Model = {
         Input : string
     }
     with
-        static member Format( m : Server.IChatMessage ) =
+        static member Format( m : ChatMessage ) =
             sprintf "From %s: %s" m.user m.message
 
         member this.Append( m : string ) =
             { this with ChatLog = this.ChatLog + m + "\n" }
 
-        member this.Append( m : Server.IChatMessage ) =
+        member this.Append( m : ChatMessage ) =
             this.Append( Model.Format(m) )
 
 type Message =
     | SetInput of string
     | SendMessage
     | ServerError of System.Exception
-    | ReceivedMessage of Server.IChatMessage
+    | ReceivedMessage of ChatMessage
 
 let init user =
     { User = user; ChatLog = ""; Input = "" }, Cmd.none
@@ -45,8 +47,10 @@ let update (session : Server.Session) msg model =
     | ReceivedMessage icm ->
         model.Append(icm), Cmd.none
 
-let view (session : Server.Session)  =
-    let model, dispatch = session.User |> Store.makeElmish init (update session) ignore
+open Fable.DrawingCanvas
+open Fable.DrawingCanvas.Builder
+
+let view (session : Server.Session) model dispatch =
 
     UI.flexColumn [
         disposeOnUnmount [
@@ -55,16 +59,6 @@ let view (session : Server.Session)  =
         ]
 
         Attr.style [ Css.gap (rem 1) ]
-        UI.flexRow [
-            Attr.style [ Css.gap (rem 1) ]
-            Html.span (sprintf "Logged in as %s" session.User.name)
-
-            Html.button [
-                Attr.className "button is-primary"
-                text "Sign Out"
-                Ev.onClick (fun e -> session.SignOut())
-            ]
-        ]
 
         Html.textarea [
             Attr.className "textarea"
@@ -84,3 +78,10 @@ let view (session : Server.Session)  =
         ]
     ]
 
+
+let ui (session : Server.Session) =
+    let model, dispatch = session.User |> Store.makeElmish init (update session) ignore
+    {
+        Main = view session model dispatch
+        Nav = fragment []
+    }

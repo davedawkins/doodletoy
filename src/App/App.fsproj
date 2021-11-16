@@ -2,18 +2,29 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <UseLocalSutil>True</UseLocalSutil>
+    <DefineConstants>USE_SUTIL</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Types.fs" />
+    <Compile Include="DrawingCanvas.fs" />
+    <Compile Include="TurtleParser.fs" />
+    <Compile Include="AppWriteSdk.fs" />
     <Compile Include="UI.fs" />
     <Compile Include="Server.fs" />
     <Compile Include="Login.fs" />
     <Compile Include="Chat.fs" />
+    <Compile Include="Examples.fs"/>
+    <Compile Include="Turtle.fs" />
+    <Compile Include="Home.fs" />
     <Compile Include="App.fs" />
   </ItemGroup>
     <ItemGroup>
-        <ProjectReference Include="..\..\..\fable-appwrite\src\FableAppwrite.fsproj" />
         <PackageReference Include="Fable.Promise" Version="2.*" />
+        <ProjectReference Include="..\..\..\Sutil\src\Sutil\Sutil.fsproj" />
+        <!-- <Package Reference Include="Sutil" Version="1.0.0-*" /> -->
     </ItemGroup>
+
+    <!--
   <Choose>
     <When Condition=" '$(UseLocalSutil)'=='True' ">
         <ItemGroup>
@@ -26,4 +37,5 @@
         </ItemGroup>
     </When>
   </Choose>
+  -->
 </Project>

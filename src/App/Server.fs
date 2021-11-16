@@ -5,24 +5,18 @@ open Fable.Core
 open Fable.Core.JsInterop
 open AppwriteSdk
 open Sutil
+open Types.Schema
 
 let private chatCollectionID = "617c11bb63b82"
 let private testProjectID = "6170675806cbd"
 let private serviceUrl = "https://www.solochimp.com/v1"
-
-
-[<AllowNullLiteral>]
-type IChatMessage =
-    abstract ts: int
-    abstract message: string
-    abstract user: string
 
 type Server() =
     let mutable disposables : IDisposable list = []
 
     let sdk = AppwriteSdk.Create()
     let user : IStore<User option> = Store.make None
-    let messages : IStore<IChatMessage> = Store.make null
+    let messages : IStore<ChatMessage> = Store.make null
     let setUser (u : User option ) =
         Store.set user u
 
@@ -57,7 +51,7 @@ type Server() =
     let subscribe() =
         sdk.subscribe(
             !^ $"collections.{chatCollectionID}.documents",
-            fun r -> Store.set messages (r.payload :> IChatMessage)
+            fun r -> Store.set messages (r.payload :> ChatMessage)
         )
 
     let dispose() =
@@ -83,16 +77,12 @@ type Server() =
     // Members
 
     member _.SignInWithGoogle() =
-        sdk.account.createOAuth2Session
-            "google"
-            "http://localhost:8080/"
-            "http://localhost:8080/"
-            [| |]
+        sdk.account.createOAuth2Session( "google", "http://localhost:8080/", "http://localhost:8080/", [| |]) |> ignore
 
     member _.User : System.IObservable<User option> =
         upcast user
 
-    member _.Messages : IObservable<IChatMessage> =
+    member _.Messages : IObservable<ChatMessage> =
         safeMessages
 
     member _.SignOut() =
@@ -122,3 +112,9 @@ type Session(server : Server, user : User) =
 
     member _.SignOut() =
         server.SignOut()
+
+    member _.Preferences
+        with    get() : UserPrefs = null
+        and     set( value : UserPrefs ) : unit = ()
+
+
