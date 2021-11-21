@@ -9,63 +9,60 @@ open Sutil.Styling
 open UI
 open Types
 
-type Page =
-    | Login
-    | Home
-    | Chat
-    | Turtle
-
 type Model = {
     Page : Page
-    UI : PageUI
-    Session : Session option
-}
+    Session : DoodleSession option
+    Doodle : Schema.Doodle}
 
-let pageUi m = m.UI
-let pageUiNav m = m.UI.Nav
-let pageUiMain m = m.UI.Main
 type Message =
     | SetPage of Page
     | SignedIn of User
     | SignedOut
-    | InitUI
-
-let initUI server page session =
-    match page,session with
-    | Chat, Some session ->
-        Chat.ui session
-    | Turtle, Some session ->
-        Turtle.ui session
-    | Home, _ ->
-        PageUI.Create(Home.view server)
-    | Login, _ | _, _ -> PageUI.Create(Login.view server)
+    | External of ExternalMessage
 
 let init server =
     let initPage = Home
     {
         Page = initPage
         Session = None
-        UI = initUI server initPage None
-    }, Cmd.none
+        Doodle = Schema.Doodle.Create()    }, Cmd.none
 
-let update server msg model =
-    Fable.Core.JS.console.log($"{msg}")
+let update (server : Server) msg model =
+    //Fable.Core.JS.console.log($"{msg}")
 
     match msg with
+    | External m ->
+        match m with
+        | NewTurtle -> { model with Doodle = Schema.Doodle.Create() }, Cmd.ofMsg (SetPage Turtle)
+        | EditTurtle t ->
+            server.IncrementViewCount(t) |> ignore
+            { model with Doodle = t }, Cmd.ofMsg (SetPage Turtle)
 
-    //| Home ->
-    //    model, Cmd.ofMsg (if model.Session.IsSome then SetPage Turtle else SetPage Home)
-
-    | SetPage p -> { model with Page = p }, Cmd.ofMsg InitUI
+    | SetPage p -> { model with Page = p }, Cmd.none
 
     | SignedOut ->
         { model with Session = None }, Cmd.ofMsg (SetPage Home)
 
     | SignedIn user ->
-        { model with Session = Session(server,user) |> Some }, Cmd.ofMsg (SetPage Turtle)
+        { model with Session = DoodleSession(server,user) |> Some }, Cmd.ofMsg (SetPage Home)
 
-    | InitUI ->
-        { model with UI = initUI server model.Page model.Session }, Cmd.none
+let viewMain server model dispatch =
+    match model.Session, model.Page with
+    | _, Home -> Home.view server (dispatch<<External)
+    | _, Turtle -> Turtle.view model.Session model.Doodle
+    | Some session, Profile -> Profile.view session (dispatch<<External)
+    | _, _ -> Login.view server (dispatch<<External)
+
+let viewNav server page session dispatch =
+    match session, page with
+    | s, Home -> Home.nav server (dispatch<<External)
+    | s, Turtle -> fragment []
+    | _, _ -> fragment []
+
+let run ( p : Fable.Core.JS.Promise<'T> ) =
+    p
+        |> Promise.map (fun x -> Fable.Core.JS.console.dir(x))
+        |> Promise.catch (fun x -> Fable.Core.JS.console.error(x.Message))
 
 let view() =
     let server = new Server()
@@ -73,7 +70,11 @@ let view() =
     let model, dispatch = server |> Store.makeElmish init (update server) ignore
 
     let unsub = server.User.Subscribe( function
-        Some u -> dispatch (SignedIn u)| None -> dispatch SignedOut
+        | Some u ->
+            //createNew server
+            //fetchAll server
+            dispatch (SignedIn u)
+        | None -> dispatch SignedOut
     )
 
     Html.div [
@@ -81,26 +82,25 @@ let view() =
 
         elAppend "head" [
             Html.style """
-            body {
+            html, body {
                 background-color: rgb(251, 253, 239);
-                height: 100vh;
+                height: 100%;
             }
             """
         ]
 
         UI.header [
-            UI.UI.navLogo "turtleToy" (fun _ -> dispatch (SetPage Home))
+            UI.UI.navLogo "doodletoy" (fun _ -> dispatch (SetPage Home))
             Bind.el(server.User, fun userOpt ->
                 UI.nav [
                     match userOpt with
                     |Some u ->
                         fragment [
                             UI.navLabel "Welcome"
-                            UI.navItem (u.name) ignore
+                            UI.navItem (u.name) (fun _ -> SetPage Profile |> dispatch)
                             UI.navLabel ("|")
-                            UI.navItem "Chat" (fun _ -> SetPage Chat |> dispatch)
-                            UI.navItem "Turtle" (fun _ -> SetPage Turtle |> dispatch)
-                            Bind.el(model .> pageUiNav, id)
+                            UI.navItem "New" (fun _ -> dispatch (External NewTurtle))
+                            //Bind.el(model, fun m -> viewNav server m.Page m.Session dispatch)
                             UI.navItem "Sign Out" (fun _ -> server.SignOut())
                         ]
                     | None ->
@@ -114,7 +114,7 @@ let view() =
             Attr.style [
                 Css.padding (rem 4.5)
             ]
-            Bind.el( model .> pageUiMain, id )
+            Bind.el( model, fun m -> viewMain server m dispatch)
         ]
     ]
 

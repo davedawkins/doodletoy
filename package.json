@@ -2,7 +2,8 @@
   "private": true,
   "scripts": {
     "start": "dotnet fable watch src/App --run webpack serve",
-    "build": "dotnet fable       src/App --run webpack --mode production"
+    "build": "dotnet fable       src/App --run webpack --mode production",
+    "deploy:linode": "bash deployToLinode.sh ./public doodletoy '' deploy@213.52.129.104 /home/deploy/apps"
   },
   "dependencies": {
     "appwrite": "^4.0.4",

@@ -11,7 +11,7 @@ open Fable.Core.JsInterop
 open AppwriteSdk
 open Sutil.Styling
 open UI
-
+open Server
 type Model = {
     Email : string
     Password : string
@@ -21,18 +21,28 @@ type Model = {
 type Message =
     | SetError of System.Exception
     | SetStatus of string
+    | SetEmail of string
+    | SetPassword of string
+    | SignIn
 
 let init() =
     { Email = ""; Password = ""; Status = "" }, Cmd.none
 
-let update server msg model =
+let update (server : Server) msg model =
     match msg with
     | SetError x ->
         { model with Status = x.Message}, Cmd.none
     | SetStatus s ->
         { model with Status = s}, Cmd.none
+    | SetEmail email ->
+        { model with Email = email }, Cmd.none
+    | SetPassword pwd ->
+        { model with Password = pwd }, Cmd.none
+    | SignIn ->
+        server.SignIn(model.Email, model.Password)
+        model, Cmd.none
 
-let view (server : Server.Server) =
+let view (server : Server) (dispatchExternal) =
     let model, dispatch = () |> Store.makeElmish init (update server) ignore
 
     UI.flexColumn [
@@ -42,12 +52,14 @@ let view (server : Server.Server) =
             Attr.className "input"
             Attr.typeText
             Attr.placeholder "Email"
+            Bind.attr("value", model .> (fun m -> m.Email), dispatch<<SetEmail)
         ]
 
         Html.input [
             Attr.className "input"
             Attr.typePassword
             Attr.placeholder "Password"
+            Bind.attr("value", model .> (fun m -> m.Password), dispatch<<SetPassword)
         ]
 
         UI.flexRow [
@@ -55,6 +67,7 @@ let view (server : Server.Server) =
             Html.button [
                 Attr.className "button is-primary"
                 text "Sign In"
+                Ev.onClick (fun e -> dispatch SignIn)
             ]
             Html.button [
                 Attr.className "button is-primary"

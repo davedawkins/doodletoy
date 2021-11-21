@@ -1,5 +1,20 @@
 module Examples
 
+
+let templateSource = """clear "#202020"
+penDown
+penHue frac (t / 10)
+
+let d = 1
+repeat 8 {
+       forward d * 100
+       turn 90
+       let d = d + 1
+       rotateHue -0.002
+       increaseWidth 2
+       increaseAlpha -0.005
+}"""
+
 let circleSpiralsSource = """clear "#333333"
 
 penDown

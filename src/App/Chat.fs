@@ -32,7 +32,7 @@ type Message =
 let init user =
     { User = user; ChatLog = ""; Input = "" }, Cmd.none
 
-let update (session : Server.Session) msg model =
+let update (session : Server.DoodleSession) msg model =
     match msg with
     | SetInput s -> { model with Input = s }, Cmd.none
 
@@ -50,7 +50,7 @@ let update (session : Server.Session) msg model =
 open Fable.DrawingCanvas
 open Fable.DrawingCanvas.Builder
 
-let view (session : Server.Session) model dispatch =
+let view (session : Server.DoodleSession) model dispatch =
 
     UI.flexColumn [
         disposeOnUnmount [
@@ -78,10 +78,3 @@ let view (session : Server.Session) model dispatch =
         ]
     ]
 
-
-let ui (session : Server.Session) =
-    let model, dispatch = session.User |> Store.makeElmish init (update session) ignore
-    {
-        Main = view session model dispatch
-        Nav = fragment []
-    }

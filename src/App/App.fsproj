@@ -5,17 +5,18 @@
     <DefineConstants>USE_SUTIL</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="AppWriteSdk.fs" />
+    <Compile Include="Examples.fs"/>
     <Compile Include="Types.fs" />
     <Compile Include="DrawingCanvas.fs" />
     <Compile Include="TurtleParser.fs" />
-    <Compile Include="AppWriteSdk.fs" />
     <Compile Include="UI.fs" />
     <Compile Include="Server.fs" />
     <Compile Include="Login.fs" />
     <Compile Include="Chat.fs" />
-    <Compile Include="Examples.fs"/>
     <Compile Include="Turtle.fs" />
     <Compile Include="Home.fs" />
+    <Compile Include="Profile.fs" />
     <Compile Include="App.fs" />
   </ItemGroup>
     <ItemGroup>

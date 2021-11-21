@@ -18,15 +18,16 @@ let Create() = exports.Appwrite.Create()
 
 type Preferences = obj
 
+type HasId = interface end
+
 type Session =
-    abstract ``$id``: string
     abstract userId: string
     abstract provider: string
     abstract providerToken: string
     abstract providerUid: string
+    inherit HasId
 
 type User =
-    abstract ``$id``: string
     abstract name: string
     abstract email: string
     abstract status: int
@@ -34,6 +35,17 @@ type User =
     abstract registration: int
     abstract passwordUpdate: int
     abstract prefs: Preferences
+    inherit HasId
+
+[<AutoOpen>]
+module Ext =
+    type HasId with
+        [<Emit("$0['$id']")>]
+        member this._id : string = jsNative
+
+type ListDocumentsResult<'T> =
+    abstract sum : int
+    abstract documents : 'T[]
 
 // Other changes:
 // - Change returned type to User and Session for appropriate calls
@@ -310,7 +322,7 @@ type [<AllowNullLiteral>] AppwriteAccount<'T, 'T_1, 'T_2, 'T_3, 'T_4, 'T_5, 'T_6
     /// <param name="password" />
     /// <exception cref="AppwriteException" />
     /// <returns />
-    abstract createSession: email: string * password: string -> Promise<'T_13>
+    abstract createSession: email: string * password: string -> Promise<Session>
     /// <summary>
     /// Delete All Account Sessions
     ///
@@ -574,7 +586,7 @@ type [<AllowNullLiteral>] AppwriteDatabase<'T, 'T_1, 'T_2, 'T_3, 'T_4> =
     /// <param name="search" />
     /// <exception cref="AppwriteException" />
     /// <returns />
-    abstract listDocuments: collectionId: string * ?filters: string[] * ?limit: float * ?offset: float * ?orderField: string * ?orderType: string * ?orderCast: string * ?search: string -> Promise<'T>
+    abstract listDocuments: collectionId: string * ?filters: string[] * ?limit: float * ?offset: float * ?orderField: string * ?orderType: string * ?orderCast: string * ?search: string -> Promise<ListDocumentsResult<'Rec>>
     /// <summary>
     /// Create Document
     ///

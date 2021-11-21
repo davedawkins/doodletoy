@@ -1,15 +1,13 @@
 module Types
 
 open Sutil.DOM
-
-type PageUI = {
-        Main : SutilElement
-        Nav : SutilElement
-    }
-    with
-        static member Create(main) = { Main = main; Nav = fragment [] }
-        static member Create(main,nav) = { Main = main; Nav = nav }
-
+open AppwriteSdk
+type Page =
+    | Login
+    | Profile
+    | Home
+    | Chat
+    | Turtle
 
 module Schema =
     [<AllowNullLiteral>]
@@ -18,15 +16,60 @@ module Schema =
         abstract message: string
         abstract user: string
 
-    [<AllowNullLiteral>]
-    type TurtleDoc =
-        abstract id : int
-        abstract name : string
-        abstract source : string
-        abstract ownedBy : string
-        abstract likedBy : string []
-        abstract numViews : int
+    type Doodle = {
+        name : string
+        description : string
+        source : string
+        ownedBy : string
+        ownedByName : string
+        isPrivate : bool
+    }
+    with
+        static member Create() : Doodle = {
+            name = ""
+            description = ""
+            source = Examples.templateSource
+            ownedBy = ""
+            ownedByName = ""
+            isPrivate = false }
+        interface HasId
 
-    [<AllowNullLiteral>]
-    type UserPrefs =
-        abstract currentTurtle : string
+    type Like = {
+        doodleId: string
+        userId: string
+    }
+    with
+        static member Create( t : Doodle, u : User ) : Like = {
+            doodleId = t._id
+            userId = u._id
+            }
+        interface HasId
+
+    type Views = {
+        doodleId: string
+        mutable numViews: float
+    }
+    with
+        static member Create( id : string, n : float ) : Views = {
+                doodleId = id
+                numViews = n
+            }
+        static member Create( t : Doodle ) =
+            Views.Create(t._id, 1.0)
+
+        member x.Increment() =
+            x.numViews <- x.numViews + 1.0
+
+        interface HasId
+
+    type DoodleView = {
+        Doodle : Doodle
+        Likes : Like []
+        Views : Views []
+        MyLike : Like option
+    }
+
+
+type ExternalMessage =
+    | NewTurtle
+    | EditTurtle of Schema.Doodle

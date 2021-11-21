@@ -8,16 +8,37 @@ open Fable.DrawingCanvas.Builder
 open type Feliz.length
 open Sutil.DOM
 open Types
+open System
+open Sutil.Styling
+
+module Ticker =
+
+    let Create<'T> (interval : int) (init : unit -> 'T) (value : int -> 'T -> 'T) (dispose : 'T -> unit)=
+        let mutable stop : unit -> unit = ignore
+        let mutable tick : int = 0
+        let s = ObservableStore.makeStore init (fun v -> stop(); dispose v)
+        stop <- DOM.interval
+            (fun _ ->
+                tick <- tick + 1
+                s |> Store.modify (value tick)
+                )
+            interval
+        s
 
 type Model = {
-    Source : string
-    //Color : string
+    Doodle : Types.Schema.Doodle
     TickCount : int
+    IsEdited : bool
 }
 
 type Message =
+    | SetName of string
+    | SetDescription of string
     | SetSource of string
     | Tick
+    | Save
+    | Saved of Schema.Doodle
+    | Error of Exception
 
 let drawMessage msg color = drawing {
     save
@@ -41,24 +62,35 @@ let drawTurtle (source :string) =
         | TurtleParser.Parser.ParseResult.Error msg -> drawMessage "Oops! Not a turtle" "orange"
         | TurtleParser.Parser.ParseResult.Success d -> fun() -> d
 
-let turtleFromModel model = (drawTurtle model.Source)()
+let turtleFromModel model = (drawTurtle model.Doodle.source)()
 
-let init() =
-    { Source = ""; TickCount = 0 },
+let init doodle =
+    {
+        TickCount = 0
+        IsEdited = false
+        Doodle = doodle
+    },
     [ fun d -> Fable.Core.JS.setInterval (fun _ -> d Tick) 40 |> ignore ]
 
-let update msg model =
+let update (session:DoodleSession option) msg (model : Model)=
+    Fable.Core.JS.console.log($"{msg}")
     match msg with
-    | SetSource s -> { model with Source = s }, Cmd.none
+    | Error x -> model, Cmd.none
+    | Saved t ->
+        { model with Doodle = t; IsEdited = false }, Cmd.none
+    | Save ->
+        match session with
+        | Some s ->
+            model, Cmd.OfPromise.either (s.Save) (model.Doodle) Saved Error
+        | None -> model, Cmd.none
+    | SetName s ->
+        { model with Doodle = { model.Doodle with name = s }; IsEdited = true }, Cmd.none
+    | SetDescription s ->
+        { model with Doodle = { model.Doodle with description = s }; IsEdited = true }, Cmd.none
+    | SetSource s ->
+        { model with Doodle = { model.Doodle with source = s }; IsEdited = true }, Cmd.none
     | Tick ->
-        { model with
-            TickCount = model.TickCount + 1
-            // Color =
-            //       model.Color
-            //       |> ColorShift.hexToHsv
-            //       |> (ColorShift.rotateHue -0.005)
-            //       |> ColorShift.hsvToHex
-            }, Cmd.none
+        { model with TickCount = model.TickCount + 1}, Cmd.none
 
 let nav model dispatch =
     UI.navDropdown "Examples" [
@@ -67,14 +99,37 @@ let nav model dispatch =
         UI.navItem "Circles" (fun _ -> SetSource Examples.circleSpiralsSource |> dispatch)
     ]
 
+let style = [
+    rule ".turtle-details" [
+        Css.gap (rem 0.5)
+    ]
+    rule "label" [
+        Css.width (px 100)
+    ]
+    rule ".turtle-details input" [
+        Css.flexGrow 1
+    ]
+    rule ".turtle-details textarea" [
+        Css.flexGrow 1
+        Css.height (rem 5)
+    ]
+    rule ".turtle-details .buttons" [
+        Css.justifyContentCenter
+    ]
+
+    rule ".turtle-view" [
+        Css.width (px 500)
+    ]
+]
+
 let turtleView turtle =
     Html.div [
+        Attr.className "turtle-view"
         Attr.style [
             Css.flexGrow 1
-            Css.width (px 500)
+            //Css.width (px 500)
             Css.custom ("aspect-ratio", "1 / 1")
         ]
-        //Bind.el( model, fun (m : Model) ->)
         DrawingCanvas [
             Attr.style [
                 Css.width (percent 100)
@@ -87,33 +142,56 @@ let turtleView turtle =
         ] turtle
     ]
 
-let view model dispatch =
+let _view model dispatch =
     UI.flexRow [
+
         Attr.style [
             Css.justifyContentSpaceBetween
             Css.gap (rem 4)
             Css.custom("align-items", "start")
         ]
 
+        UI.flexColumn [
+            Attr.className "turtle-details"
+
+            model |> Store.map turtleFromModel |> turtleView
+
+            UI.flexRow [
+                Html.label [ text "Name:" ]
+                Html.input [
+                    Bind.attr("value", model |> Store.map (fun m -> m.Doodle.name), dispatch<<SetName)
+                ]
+            ]
+            UI.flexRow [
+                Html.label [ text "Description:" ]
+                Html.textarea [
+                    Bind.attr("value", model |> Store.map (fun m -> m.Doodle.description), dispatch<<SetDescription)
+                ]
+            ]
+            UI.flexRow [
+                Attr.className "buttons"
+                Html.button [
+                    text "Save"
+                    Ev.onClick (fun _ -> dispatch Save)
+                ]
+            ]
+        ]
+
         Html.textarea [
+            Attr.className  "turtle-editor"
             Attr.style [
                 Css.flexGrow 1
                 Css.width (px 500)
-                Css.height (px 500)
+                Css.height (px 710)
                 Css.backgroundColor "#202020"
                 Css.color "beige"
                 Css.padding (rem 1)
                 Css.fontFamily "Consolas, monospace"
             ]
-            Bind.attr("value", model .> (fun m -> m.Source), dispatch << SetSource)
+            Bind.attr("value", model .> (fun m -> m.Doodle.source), dispatch << SetSource)
         ]
+    ] |> withStyle style
 
-        model |> Store.map turtleFromModel |> turtleView
-    ]
-
-let ui (session : Session) =
-    let model, dispatch = () |> Store.makeElmish init update ignore
-    {
-        Main = view model dispatch
-        Nav = nav model dispatch
-    }
+let view session turtle =
+    let model, dispatch = turtle |> Store.makeElmish init (update session) ignore
+    _view model dispatch
