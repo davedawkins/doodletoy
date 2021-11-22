@@ -102,6 +102,9 @@ let nav model dispatch =
 let style = [
     rule ".turtle-details" [
         Css.gap (rem 0.5)
+        Css.flexShrink 1
+        Css.flexGrow 1
+        Css.maxWidth (vh 90)
     ]
     rule "label" [
         Css.width (px 100)
@@ -118,7 +121,21 @@ let style = [
     ]
 
     rule ".turtle-view" [
+        Css.width (percent 100)
+    ]
+
+    rule ".turtle-editor" [
+        Css.flexGrow 1
+        Css.flexShrink 1
         Css.width (px 500)
+        Css.height (px 710)
+        Css.minWidth (px 400)
+        Css.maxWidth (px 700)
+        Css.backgroundColor "#202020"
+        Css.color "beige"
+        Css.padding (rem 1)
+        Css.fontFamily "Consolas, monospace"
+        Css.fontSize (pt 10)
     ]
 ]
 
@@ -127,7 +144,6 @@ let turtleView turtle =
         Attr.className "turtle-view"
         Attr.style [
             Css.flexGrow 1
-            //Css.width (px 500)
             Css.custom ("aspect-ratio", "1 / 1")
         ]
         DrawingCanvas [
@@ -142,7 +158,7 @@ let turtleView turtle =
         ] turtle
     ]
 
-let _view model dispatch =
+let _view readonly model dispatch =
     UI.flexRow [
 
         Attr.style [
@@ -158,40 +174,37 @@ let _view model dispatch =
 
             UI.flexRow [
                 Html.label [ text "Name:" ]
+
                 Html.input [
+                    if readonly then
+                        Attr.readOnly true
                     Bind.attr("value", model |> Store.map (fun m -> m.Doodle.name), dispatch<<SetName)
                 ]
             ]
             UI.flexRow [
                 Html.label [ text "Description:" ]
                 Html.textarea [
+                    if readonly then
+                        Attr.readOnly true
                     Bind.attr("value", model |> Store.map (fun m -> m.Doodle.description), dispatch<<SetDescription)
                 ]
             ]
-            UI.flexRow [
-                Attr.className "buttons"
-                Html.button [
-                    text "Save"
-                    Ev.onClick (fun _ -> dispatch Save)
+            if not readonly then
+                UI.flexRow [
+                    Attr.className "buttons"
+                    Html.button [
+                        text "Save"
+                        Ev.onClick (fun _ -> dispatch Save)
+                    ]
                 ]
-            ]
         ]
 
         Html.textarea [
             Attr.className  "turtle-editor"
-            Attr.style [
-                Css.flexGrow 1
-                Css.width (px 500)
-                Css.height (px 710)
-                Css.backgroundColor "#202020"
-                Css.color "beige"
-                Css.padding (rem 1)
-                Css.fontFamily "Consolas, monospace"
-            ]
             Bind.attr("value", model .> (fun m -> m.Doodle.source), dispatch << SetSource)
         ]
     ] |> withStyle style
 
 let view session turtle =
     let model, dispatch = turtle |> Store.makeElmish init (update session) ignore
-    _view model dispatch
+    _view (session.IsNone) model dispatch

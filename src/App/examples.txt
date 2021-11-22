@@ -112,3 +112,8 @@ repeat 600 {
        increaseAlpha -0.002
 }
 
+
+
+github
+
+https://github.com/login/oauth/authorize?client_id=153588&redirect_uri=https%3A%2F%2Fsolochimp.com%2Fv1%2Faccount%2Fsessions%2Foauth2%2Fcallback%2Fgithub%2F619bd8cd83fa8&scope=user%3Aemail&state=%7B%22success%22%3A%22http%3A%5C%2F%5C%2Flocalhost%3A8080%5C%2F%22%2C%22failure%22%3A%22http%3A%5C%2F%5C%2Flocalhost%3A8080%5C%2F%22%7D

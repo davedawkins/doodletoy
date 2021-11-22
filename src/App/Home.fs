@@ -39,6 +39,7 @@ let style = [
     rule ".home-turtle" [
         Css.fontSize (percent 75)
         Css.alignItemsCenter
+        Css.width (px 200)
     ]
     //rule ".home-turtle:hover" [
     //    Css.fontWeightBold
@@ -46,12 +47,15 @@ let style = [
 
     rule ".turtle-container" [
         Css.cursorPointer
-        Css.width (px 200)
-        Css.width (px 200)
+        //Css.width (px 200)
+        //Css.width (px 200)
     ]
 
     rule ".turtle-browser" [
-        Css.flexWrapWrap
+        Css.displayGrid
+        Css.gap (rem 2)
+        Css.custom("justifyItems", "center")
+        Css.custom("grid-template-columns", "repeat(auto-fill, minmax(200px, 1fr))")
     ]
 ]
 
@@ -93,11 +97,9 @@ module DoodleView =
         let make() = Turtle.drawTurtle m.Doodle.source ()
         let drawingS = Store.make (make())
         let refresh() =
-            //Fable.Core.JS.console.log("Refresh")
             Store.set drawingS (make())
         let mutable stopAnimate = ignore
         let startAnimate() =
-            //Fable.Core.JS.console.log("Start animate")
             stopAnimate <- DOM.interval refresh 40
 
         UI.flexColumn [
@@ -153,17 +155,7 @@ module DoodleView =
                     |> Option.defaultValue (text " 0")
                 ]
             ]
-
         ]
-
-    let loadingStyle = [
-            Css.width (px 200)
-            Css.height (px 200)
-            Css.borderStyleSolid
-            Css.borderWidth (px 1)
-            Css.borderColor ("#dddddd")
-            Css.borderRadius (px 10)
-    ]
 
     let view server dispatchLocal (doodle : Schema.Doodle) =
         let model, dispatch = doodle |> Store.makeElmish (init server) (update server) ignore
@@ -179,11 +171,7 @@ let view (server : Server) (dispatchExternal) =
         Attr.className "hero"
         //text "Featured Turtle"
         //Turtle.turtleView drawingStore
-        UI.flexRow [
-            Attr.className "turtle-browser"
-            Attr.style [
-                Css.gap (rem 1)
-            ]
+        UI.divc "turtle-browser" [
             Bind.each( model |> Store.map (fun m -> m.Doodles), DoodleView.view server dispatch, (fun r -> r._id) )
         ] |> withStyle style
     ]

@@ -9,26 +9,38 @@ open Types.Schema
 
 let private chatCollectionID = "617c11bb63b82"
 
-let private doodlesCollectionID = "6198bb5fc2af9" // dev.solochimp.com "618f067fe9a12" www.solochimp.com:8543 "6198bb5fc2af9"
-let private testProjectID = "6198bb3a56d82" // dev.solochimp.com "6170675806cbd" www.solochimp.com:8543 "6198bb3a56d82"
-let private serviceUrlX = "https://dev.solochimp.com/v1"
-let private serviceUrl = "https://www.solochimp.com:8543/v1"
-let private likesCollectionId = "61991218eb534"
-let viewsCollectionId = "61996e44e96d2"
 
+let private serviceUrl = "https://solochimp.com/v1"
+let private doodlesProjectID = "619bd8cd83fa8"
+let private doodlesCollectionID = "619bd92054698"
+let private likesCollectionId = "619bda17062c0"
+let private viewsCollectionId = "619bda67c7d02"
+let private visitorEmail = "a@b.com"
 type Server() =
     let mutable disposables : IDisposable list = []
 
     let sdk = AppwriteSdk.Create()
     let user : IStore<User option> = Store.make None
     let messages : IStore<ChatMessage> = Store.make null
-    let setUser (u : User option ) =
-        Store.set user u
+    let setUser (userOpt : User option ) =
+        JS.console.dir(userOpt)
+        match userOpt with
+        | Some u when u.email = "" || u.email = visitorEmail -> None
+        | _ -> userOpt
+        |> Store.set user
 
     let safeMessages = messages |> Store.filter (not << isNull)
 
     let logError (msg : string) =
         JS.console.error(msg)
+
+    let createAnonymousSession() =
+        sdk.account.createSession(visitorEmail, "doodletoy")
+        |> Promise.map (fun _ ->
+            JS.console.log("Logged in anonymously")
+        )
+        |> Promise.catch ignore
+        |> ignore
 
     let getSessionUser()  =
         sdk.account.get()
@@ -36,14 +48,18 @@ type Server() =
         |> Promise.catch (fun x ->
             logError(x.Message)
             None |> setUser
+            createAnonymousSession()
         )
         |> ignore
 
     let init() =
         sdk
             .setEndpoint(serviceUrl)
-            .setProject(testProjectID)
+            .setProject(doodlesProjectID)
             |> ignore
+
+    let ignoreError (f : unit -> unit) (p : JS.Promise<'T>) =
+        p |> Promise.map (fun _ -> f()) |> Promise.catch (fun _ -> f()) |> ignore
 
     let catchError (p : JS.Promise<'T>) =
         p
@@ -82,14 +98,25 @@ type Server() =
     // Members
 
     member _.SignIn(email:string, password:string) =
-        sdk.account.createSession(email,password)
-            |> Promise.map( fun s -> getSessionUser() )
-            |> Promise.catch (fun x -> logError(x.Message))
-            |> ignore
+        sdk.account.deleteSession "current"
+        |> ignoreError (fun () -> // FIXME
+            sdk.account.createSession(email,password)
+                |> Promise.map( fun s -> getSessionUser() )
+                |> Promise.catch (fun x -> logError(x.Message))
+                |> ignore)
 
+    member _.SignInWith(provider : string) =
+        sdk.account.deleteSession "current"
+        |> ignoreError (fun () -> // FIXME
+            sdk.account.createOAuth2Session( provider, "http://localhost:8080/", "http://localhost:8080/") |> ignore
+        )
+(*
     member _.SignInWithGoogle() =
         sdk.account.createOAuth2Session( "google", "http://localhost:8080/", "http://localhost:8080/", [| |]) |> ignore
 
+    member _.SignInWithGithub() =
+        sdk.account.createOAuth2Session( "github", "http://localhost:8080/", "http://localhost:8080/", [| |] ) |> ignore
+*)
     member _.User : System.IObservable<User option> =
         upcast user
 
@@ -157,6 +184,7 @@ type Server() =
     member _.SignOut() =
         sdk.account.deleteSession "current" |> catchError // FIXME
         setUser None
+        createAnonymousSession()
 
     member _.Likes( d : Doodle) =
         let likes = sdk.database.listDocuments( likesCollectionId, [| "doodleId=" + d._id |] ) : JS.Promise<ListDocumentsResult<Like>>
@@ -234,8 +262,17 @@ type DoodleSession(server : Server, user : User) =
         server.SignOut()
 
     member _.Save( doc : Types.Schema.Doodle ) =
-        let data = { doc with ownedBy = user._id; ownedByName = user.name }
-        //Fable.Core.JS.console.dir( data )
+        let dateTimeNow = Math.Truncate(double(DateTime.UtcNow.Ticks) / double(TimeSpan.TicksPerSecond))
+        let isUndefined x = (x :> obj) = (None :> obj)
+        let data =
+            {  doc
+                with
+                    ownedBy = user._id
+                    ownedByName = user.name
+                    modifiedOn = dateTimeNow
+                    createdOn = if (doc.createdOn = 0.0 || isUndefined(doc.createdOn)) then dateTimeNow else doc.createdOn
+            }
+        Fable.Core.JS.console.dir( data )
 
         server.Map( fun sdk ->
             if String.IsNullOrEmpty(data._id) then

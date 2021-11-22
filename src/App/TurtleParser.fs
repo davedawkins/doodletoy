@@ -7,7 +7,7 @@ open System.Collections.Generic
 open Fable.DrawingCanvas.Builder
 
 
-let _log s = Fable.Core.JS.console.log(s)
+let _log (s : string) = Fable.Core.JS.console.log(s)
 
 module Parser =
 

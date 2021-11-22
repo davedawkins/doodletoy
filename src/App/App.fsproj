@@ -21,6 +21,7 @@
   </ItemGroup>
     <ItemGroup>
         <PackageReference Include="Fable.Promise" Version="2.*" />
+        <PackageReference Include="Fable.Date" Version="1.*" />
         <ProjectReference Include="..\..\..\Sutil\src\Sutil\Sutil.fsproj" />
         <!-- <Package Reference Include="Sutil" Version="1.0.0-*" /> -->
     </ItemGroup>

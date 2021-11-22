@@ -17,20 +17,26 @@ module Schema =
         abstract user: string
 
     type Doodle = {
+        ``$id`` : string
         name : string
         description : string
         source : string
         ownedBy : string
         ownedByName : string
+        createdOn : float
+        modifiedOn : float
         isPrivate : bool
     }
     with
         static member Create() : Doodle = {
+            ``$id`` = Unchecked.defaultof<_>
             name = ""
             description = ""
             source = Examples.templateSource
             ownedBy = ""
             ownedByName = ""
+            createdOn = 0.
+            modifiedOn = 0.
             isPrivate = false }
         interface HasId
 

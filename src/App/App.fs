@@ -86,6 +86,34 @@ let view() =
                 background-color: rgb(251, 253, 239);
                 height: 100%;
             }
+            button {
+                border: 1px solid hsla(257.6, 56.9%, 20%, 0.10);
+                border-radius: 15px;
+                background-color: hsla(257.6, 56.9%, 20%, 0.10);
+                color: black;
+                padding: 0.25rem 1rem;
+                cursor: pointer;
+            }
+            button:hover {
+                background-color: hsla(257.6, 56.9%, 20%, 0.20);
+            }
+            input[type=text], input[type=password] {
+                padding: 0.3rem;
+                border-radius: 6px;
+                border: 1px solid hsla(257.6, 56.9%, 20%, 0.20);
+            }
+            h1 {
+                font-size: 2rem
+            }
+            h2 {
+                font-size: 1.5rem
+            }
+            h3 {
+                font-size: 1.25rem
+            }
+            h4 {
+                font-size: 1.2rem
+            }
             """
         ]
 
@@ -99,12 +127,16 @@ let view() =
                             UI.navLabel "Welcome"
                             UI.navItem (u.name) (fun _ -> SetPage Profile |> dispatch)
                             UI.navLabel ("|")
+                            UI.navItem "Browse" (fun _ -> SetPage Home |> dispatch)
                             UI.navItem "New" (fun _ -> dispatch (External NewTurtle))
                             //Bind.el(model, fun m -> viewNav server m.Page m.Session dispatch)
                             UI.navItem "Sign Out" (fun _ -> server.SignOut())
                         ]
                     | None ->
-                        UI.navItem "Sign In" (fun _ -> SetPage Login |> dispatch)
+                        fragment [
+                            UI.navItem "Browse" (fun _ -> SetPage Home |> dispatch)
+                            UI.navItem "Sign In" (fun _ -> SetPage Login |> dispatch)
+                        ]
                 ]
             )
         ]
