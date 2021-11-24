@@ -3,6 +3,7 @@ node_modules
 [Bb]in/
 [Oo]bj/
 
+**/.DS_Store
 package-lock.json
 bundle.js
 *.fs.js

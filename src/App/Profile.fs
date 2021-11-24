@@ -82,12 +82,12 @@ let style = [
 let formatDT formatString (date : System.DateTime) = Date.Format.localFormat Date.Local.englishUK formatString date
 let asDateTime n = System.DateTime(int64(n) * System.TimeSpan.TicksPerSecond)
 
-let viewRecord dispatch (t : Schema.Doodle ) =
+let viewRecord (server : Server) (t : Schema.Doodle ) =
     fragment [
         Html.span [
             Attr.className "name"
             text t.name
-            Ev.onClick (fun _ -> EditTurtle t |> dispatch )
+            Ev.onClick (fun _ -> EditTurtle t |> server.Dispatch )
         ]
         Html.span t.description
         Html.span (string t.isPrivate)
@@ -95,7 +95,7 @@ let viewRecord dispatch (t : Schema.Doodle ) =
         Html.span (asDateTime(t.modifiedOn) |> formatDT "yyyy-MM-dd hh:mm:ss")
     ]
 
-let view (session : DoodleSession) dispatchExternal =
+let view (session : DoodleSession) server =
     let model , dispatch = () |> Store.makeElmish init (update session) ignore
 
     let header name = Html.span  [ Attr.className "header"; text name]
@@ -127,7 +127,7 @@ let view (session : DoodleSession) dispatchExternal =
             Bind.el(model |> Store.map (fun m -> m.Doodles), fun doodles ->
                 fragment [
                     for d in doodles do
-                        viewRecord dispatchExternal d
+                        viewRecord server d
                 ]
             )
             //Bind.each( model |> Store.map (fun m -> m.Doodles), viewRecord dispatchExternal, (fun r -> r._id) )

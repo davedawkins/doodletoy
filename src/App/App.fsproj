@@ -15,6 +15,7 @@
     <Compile Include="Login.fs" />
     <Compile Include="Chat.fs" />
     <Compile Include="Turtle.fs" />
+    <Compile Include="Browse.fs" />
     <Compile Include="Home.fs" />
     <Compile Include="Profile.fs" />
     <Compile Include="App.fs" />

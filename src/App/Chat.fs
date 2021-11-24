@@ -55,7 +55,7 @@ let view (session : Server.DoodleSession) model dispatch =
     UI.flexColumn [
         disposeOnUnmount [
             model
-            session.Server.Messages.Subscribe( dispatch << ReceivedMessage )
+            //session.Server.Messages.Subscribe( dispatch << ReceivedMessage )
         ]
 
         Attr.style [ Css.gap (rem 1) ]

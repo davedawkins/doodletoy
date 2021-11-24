@@ -143,11 +143,16 @@ module Parser =
                 Error "Not EOF"
         Parser inner
 
+    let isNL c = c = '\n'
+    let isCR c = c = '\r'
+
+    let isNLorCR c = isNL c || isCR c
+
     let parseNL =
-        (parseChar (fun c -> c = '\n') "newline")
+        (parseChar isNL "newline")
 
     let parseCR =
-        (parseChar (fun c -> c = '\r') "carriage return")
+        (parseChar isCR "carriage return")
 
     let parseCRNL =
         parseKeyword "\r\n" |> map (fun _ -> '\n')
@@ -167,6 +172,17 @@ module Parser =
                 accum (state @ [cmd]) input'
 
         Parser (accum [])
+
+    let parseSequenceMin (minCount : int) elementParser =
+        let inner input =
+            let result = run (parseSequence elementParser) input
+            match result with
+            | Error msg -> Error msg
+            | Success (items, remainder) when (items.Length >= minCount) ->
+                Success (items, remainder)
+            | Success (items, _) ->
+                Error (sprintf "Expected %d items, found %d" minCount (items.Length))
+        Parser inner
 
     let optional p =
         let inner input =
@@ -240,9 +256,26 @@ open Parser
 let parseSingle keyword turtleCommand =
     (parseKeyword keyword) |> map (fun _ -> turtleCommand)
 
+let parseComment =
+    let inner input =
+        let p = (parseChar ((=)'#') "comment")
+                    .>>. (parseSequence (parseChar (not<<isNLorCR) "comment character"))
+                    .>>. (parseSequence (parseChar isNLorCR "eol"))
+        let r = run p input
+        match r with
+        | Success (((hash,comment),eol),remainder) -> Success ((String(List.toArray comment)), remainder)
+        | Error msg -> Error msg
+
+    Parser inner
+
+let discard p = p |> map ignore
+
+let eatComments =
+    let parseWhite min = (parseSequenceMin min (parseChar Char.IsWhiteSpace "white")) |> discard
+    parseWhite 1 <|> (parseSequence (parseWhite 0 ..>. (parseComment |> discard)) |> discard)
+
 let parseSemi = (parseChar ((=) ';') "semicolon")
-let parseDelimx = eatSpaceTab ..>. (parseSemi)
-let parseDelim = eatSpaceTab ..>. (parseEnd <|> parseEol)
+let parseDelim = eatSpaceTab ..>. (discard parseEnd <|> discard parseEol <|> discard parseComment)
 
 type BinOp =
     | Eq
@@ -293,8 +326,8 @@ type Context = {
     Vars : Map<string,Val>
 }
 
-let parseNum = eatWhite ..>. parseNumber |> map Num
-let parseStr = eatWhite ..>. parseString |> map Str
+let parseNum = eatSpaceTab ..>. parseNumber |> map Num
+let parseStr = eatSpaceTab ..>. parseString |> map Str
 let parseIdRef = parseIdent |> map (fun name -> Id(name,[]))
 
 // Turn "+" -> BinOp.Add
@@ -364,7 +397,7 @@ and parseAddExpr =
     Parser inner
 
 and parseExpr =
-    eatWhite ..>. parseAddExpr
+    eatSpaceTab ..>. parseAddExpr
 
 let parseNumericCommand keyword =
     (andThen (parseKeyword keyword) parseExpr)
@@ -381,49 +414,14 @@ let rec parseCommand =
             |> map (fun (id,e) -> TLet (id,e))
 
     ] |> choose
-(*
-and parseCommand1 =
-    [
-        (parseKeyword "clear" .>>. (optional parseString))
-            |> map (fun (_,bg) ->
-                let fillColor =
-                    match bg with
-                        | None -> "white"
-                        | Some s -> s
-                Sub [
-                    Canvas (FillColor fillColor)
-                    Canvas (FillRect (-500., -500., 1000., 1000.))
-                ] |> TDrawCommand
-            )
-        (parseNumericCommand "forward") |> map (fun (_,e) -> TNumeric (e,Forward>>Turtle))
-        (parseNumericCommand "turn") |> map (fun (_,e) -> TNumeric (e,Turn>>Turtle))
-        (parseNumericCommand "penColor") |> map (fun (_,e) -> TString (e,PenColor>>Turtle))
-        (parseNumericCommand "rotateHue") |> map (fun (_,e) -> TNumeric (e,RotateHue>>Turtle))
-        (parseNumericCommand "increaseWidth") |> map (fun (_,e) -> TNumeric (e,IncreaseWidth>>Turtle))
-        (parseNumericCommand "increaseAlpha") |> map (fun (_,e) -> TNumeric (e,IncreaseAlpha>>Turtle))
 
-        (parseBlock |> map TBlock)
-
-        (parseKeyword "let" ..>. parseIdent .>.. parseKeyword "=" .>>. parseExpr)
-            |> map (fun (id,e) -> TLet (id,e))
-
-        ((parseNumericCommand "repeat") .>>. parseBlock)
-            |> map (fun ((_,n),cmd) -> TRepeat (n,cmd) )
-
-        parseSingle "penUp" (PenUp|> Turtle |> TDrawCommand)
-        parseSingle "penDown" (PenDown|> Turtle |> TDrawCommand)
-        parseSingle "push" (Push |> Turtle |> TDrawCommand)
-        parseSingle "pop" (Pop |> Turtle |> TDrawCommand)
-
-    ] |> choose
-*)
 and parseCommands =
     let rec accum (state : TCommand list) input =
         let stripped = skipSpaceTabEol input
         if atEnd stripped then
             Success(state,stripped)
         else
-            let r = run parseCommand stripped
+            let r = run (eatComments ..>. parseCommand) stripped
             match r with
             | Error msg ->
                 if state.IsEmpty then
@@ -438,10 +436,10 @@ and parseCommands =
 and parseBlock =
     let inner input =
         let p =
-            eatWhite
+            eatComments
             ..>. parseChar (isChar '{') "left curly"
             .>>. parseCommands
-            .>.. eatWhite
+            .>.. eatComments
             .>>. parseChar (isChar '}') "right curly"
         let r = run p (skipWhite input)
         match r with

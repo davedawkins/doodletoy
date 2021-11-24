@@ -84,7 +84,7 @@ let style = [
     ]
 ]
 
-let view (server : Server) (dispatchExternal) =
+let view (server : Server) =
     let model, dispatch = () |> Store.makeElmish init (update server) ignore
 
     UI.divc "login" [

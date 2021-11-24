@@ -5,54 +5,112 @@ open Fable.Core
 open Fable.Core.JsInterop
 open AppwriteSdk
 open Sutil
+open Types
 open Types.Schema
 
 let private chatCollectionID = "617c11bb63b82"
-
 
 let private serviceUrl = "https://solochimp.com/v1"
 let private doodlesProjectID = "619bd8cd83fa8"
 let private doodlesCollectionID = "619bd92054698"
 let private likesCollectionId = "619bda17062c0"
 let private viewsCollectionId = "619bda67c7d02"
-let private visitorEmail = "a@b.com"
+let private visitorEmail = "visitor@solochimp.com"
+let private adminTeamId = "619d6583db1da"
+let private configurationCollectionId = "619dfd44d6fb5"
+type ServerModel = {
+    User : SessionUser option
+    Configuration : Configuration
+}
 type Server() =
     let mutable disposables : IDisposable list = []
+    let mutable dispatch : (ExternalMessage -> unit) = ignore
+
+    let initModel() = {
+        User = None
+        Configuration = Configuration.Create()
+    }
+
+    let model = ObservableStore.makeStore initModel ignore
+
+    let current() = model |> Store.get
 
     let sdk = AppwriteSdk.Create()
-    let user : IStore<User option> = Store.make None
-    let messages : IStore<ChatMessage> = Store.make null
-    let setUser (userOpt : User option ) =
+
+    //let userStore : IStore<User option> = Store.make None
+    //let messages : IStore<ChatMessage> = Store.make null
+
+    let logUser (userOpt : User option) =
+        JS.console.log("LogUser")
         JS.console.dir(userOpt)
+        userOpt |> function Some u -> JS.console.dir(u) | None -> ()
+        userOpt
+
+    let filterVisitor (userOpt : User option) =
         match userOpt with
         | Some u when u.email = "" || u.email = visitorEmail -> None
         | _ -> userOpt
-        |> Store.set user
 
-    let safeMessages = messages |> Store.filter (not << isNull)
+    let setUser  =
+        logUser >> filterVisitor //>> getTeam >> setUserStore
+
+    //let safeMessages = messages |> Store.filter (not << isNull)
 
     let logError (msg : string) =
         JS.console.error(msg)
 
-    let createAnonymousSession() =
-        sdk.account.createSession(visitorEmail, "doodletoy")
-        |> Promise.map (fun _ ->
-            JS.console.log("Logged in anonymously")
-        )
-        |> Promise.catch ignore
-        |> ignore
+    let setSessionUser user =
+        Store.modify (fun m -> { m with ServerModel.User = user }) model
 
-    let getSessionUser()  =
-        sdk.account.get()
-        |> Promise.map setUser
-        |> Promise.catch (fun x ->
-            logError(x.Message)
-            None |> setUser
-            createAnonymousSession()
-        )
-        |> ignore
+    let setConfiguration config =
+        Store.modify (fun m -> { m with ServerModel.Configuration = config }) model
 
-    let init() =
+    let startSession() = promise {
+        Fable.Core.JS.console.log("startSession")
+
+        let! userOrVisitor = promise {
+            try
+                // We may already have an active session, so pick it up
+                return! (sdk.account.get() : JS.Promise<User>)
+            with
+            |x ->
+                let! session = sdk.account.createSession(visitorEmail, "doodletoy")
+                return! sdk.account.get()
+        }
+
+        let! isAdminTeam = promise {
+            try
+                do! sdk.teams.get( adminTeamId )
+                return true
+            with _ -> return false
+        }
+
+        let! configResult = sdk.database.listDocuments(configurationCollectionId) : JS.Promise<ListDocumentsResult<Configuration>>
+
+        // if configResult.sum = 0 then
+        //     let! newConfig = sdk.database.createDocument(configurationCollectionId, {
+        //         featured = ""
+        //     })
+
+        let config =
+            match configResult.sum with
+            | 0 -> Configuration.Create()
+            | _ -> configResult.documents.[0]
+
+        let sessionUser =
+            userOrVisitor |> Some |> filterVisitor
+            |> Option.map (fun u -> {
+                SessionUser.User = u
+                SessionUser.IsAdmin = isAdminTeam
+            })
+
+        setSessionUser sessionUser
+        setConfiguration config
+
+        return ()
+    }
+
+    let initSdk() =
         sdk
             .setEndpoint(serviceUrl)
             .setProject(doodlesProjectID)
@@ -69,11 +127,11 @@ type Server() =
             |> Promise.catch (fun x -> logError(x.Message))
             |> ignore
 
-    let subscribe() =
-        sdk.subscribe(
-            !^ $"collections.{chatCollectionID}.documents",
-            fun r -> Store.set messages (r.payload :> ChatMessage)
-        )
+    //let subscribe() =
+    //    sdk.subscribe(
+    //        !^ $"collections.{chatCollectionID}.documents",
+    //        fun r -> Store.set messages (r.payload :> ChatMessage)
+    //    )
 
     let dispose() =
         disposables |> List.iter (fun d -> d.Dispose())
@@ -87,41 +145,44 @@ type Server() =
     // Initialize
 
     do
-        init()
-
-        subscribe() |> addUnsub
-        addDisposable messages
-        addDisposable user
-
-        getSessionUser()
-
+        //subscribe() |> addUnsub
+        //addDisposable messages
+        //addDisposable userStore
+        //getSessionUser()
+        ()
     // Members
 
+    member _.State : IObservable<ServerModel> = upcast model
+
+    member _.SessionUser = current().User
+    member _.Configuration = current().Configuration
+
+    member _.Init( dispatchExternal : ExternalMessage -> unit ) =
+        dispatch <- dispatchExternal
+        initSdk()
+        startSession()
+
+    member _.Dispatch (msg : ExternalMessage) =
+        dispatch msg
+
     member _.SignIn(email:string, password:string) =
-        sdk.account.deleteSession "current"
-        |> ignoreError (fun () -> // FIXME
-            sdk.account.createSession(email,password)
-                |> Promise.map( fun s -> getSessionUser() )
-                |> Promise.catch (fun x -> logError(x.Message))
-                |> ignore)
+        promise {
+            try     sdk.account.deleteSession "current" |> ignore
+            with    _ -> ()
+
+            let! _ = sdk.account.createSession(email,password)
+
+            do! startSession()
+        }
 
     member _.SignInWith(provider : string) =
         sdk.account.deleteSession "current"
         |> ignoreError (fun () -> // FIXME
             sdk.account.createOAuth2Session( provider, "http://localhost:8080/", "http://localhost:8080/") |> ignore
         )
-(*
-    member _.SignInWithGoogle() =
-        sdk.account.createOAuth2Session( "google", "http://localhost:8080/", "http://localhost:8080/", [| |]) |> ignore
 
-    member _.SignInWithGithub() =
-        sdk.account.createOAuth2Session( "github", "http://localhost:8080/", "http://localhost:8080/", [| |] ) |> ignore
-*)
-    member _.User : System.IObservable<User option> =
-        upcast user
-
-    member _.Messages : IObservable<ChatMessage> =
-        safeMessages
+//    member _.Messages : IObservable<ChatMessage> =
+//        safeMessages
 
     member _.NumLikes( t : Doodle ) : JS.Promise<int> =
         promise {
@@ -144,14 +205,14 @@ type Server() =
 
     member x.ToggleLike( d : Doodle ) =
         promise {
-            match user |> Store.get with
+            match x.SessionUser with
             | None ->
                 return ()
-            | Some u ->
-                let! maybeLike = x.FindLike( d, u )
+            | Some su ->
+                let! maybeLike = x.FindLike( d, su.User )
                 match maybeLike with
                 | None ->
-                    let! like = x.CreateLike(d, u)
+                    let! like = x.CreateLike(d, su.User)
                     return ()
                 | Some like ->
                     do! x.RemoveLike(like)
@@ -181,10 +242,24 @@ type Server() =
                 return Some like.documents.[0]
         }
 
+    member _.SetFeatured( d : Doodle ) = promise {
+        let data = { current().Configuration with featured = d._id }
+        if String.IsNullOrEmpty(data._id) then
+            let! newconfig = sdk.database.createDocument(configurationCollectionId, data, [| "*" |], [| $"team:{adminTeamId}"|] )
+            setConfiguration(newconfig)
+        else
+            do! sdk.database.updateDocument(configurationCollectionId,data._id,data, [| "*" |], [| $"team:{adminTeamId}"|] )
+            setConfiguration(data)
+
+    }
+
     member _.SignOut() =
-        sdk.account.deleteSession "current" |> catchError // FIXME
-        setUser None
-        createAnonymousSession()
+        promise {
+            try     sdk.account.deleteSession "current" |> ignore
+            with    _ -> ()
+            do! startSession()
+            return ()
+        }
 
     member _.Likes( d : Doodle) =
         let likes = sdk.database.listDocuments( likesCollectionId, [| "doodleId=" + d._id |] ) : JS.Promise<ListDocumentsResult<Like>>
@@ -199,9 +274,8 @@ type Server() =
             let! likes = x.Likes d
             let! views = x.Views d
             let! myLike =
-                user
-                |> Store.get
-                |> Option.map( fun u -> x.FindLike(d,u) )
+                x.SessionUser
+                |> Option.map( fun u -> x.FindLike(d,u.User) )
                 |> Option.defaultWith (fun _ -> promise {return None})
 
             return {
@@ -209,6 +283,7 @@ type Server() =
                 Likes = likes
                 Views = views
                 MyLike = myLike
+                IsFeatured = false
             }
         }
 
@@ -245,8 +320,6 @@ type Server() =
         member _.Dispose() = dispose()
 
 type DoodleSession(server : Server, user : User) =
-    let mutable turtle = Doodle.Create()
-
     member _.User = user
 
     member _.Server = server
@@ -258,8 +331,8 @@ type DoodleSession(server : Server, user : User) =
                 {| message = message; user = user.name; ts = System.DateTime.Now.Ticks |}
             ))
 
-    member _.SignOut() =
-        server.SignOut()
+    // member _.SignOut() =
+    //     server.SignOut()
 
     member _.Save( doc : Types.Schema.Doodle ) =
         let dateTimeNow = Math.Truncate(double(DateTime.UtcNow.Ticks) / double(TimeSpan.TicksPerSecond))
@@ -272,8 +345,6 @@ type DoodleSession(server : Server, user : User) =
                     modifiedOn = dateTimeNow
                     createdOn = if (doc.createdOn = 0.0 || isUndefined(doc.createdOn)) then dateTimeNow else doc.createdOn
             }
-        Fable.Core.JS.console.dir( data )
-
         server.Map( fun sdk ->
             if String.IsNullOrEmpty(data._id) then
                 sdk.database.createDocument(doodlesCollectionID, data, [| "*" |] )
@@ -314,4 +385,3 @@ type DoodleSession(server : Server, user : User) =
 
             return ()
         }
-

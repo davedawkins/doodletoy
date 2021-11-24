@@ -138,7 +138,7 @@ type [<AllowNullLiteral>] Appwrite =
     abstract subscribe: channels: U2<string, string[]> * callback: (RealtimeResponseEvent<'T> -> unit) -> (unit -> unit)
     abstract account: AppwriteAccount<'T, 'T_1, 'T_2, 'T_3, 'T_4, 'T_5, 'T_6, 'T_7, 'T_8, 'T_9, 'T_10, 'T_11, 'T_12, 'T_13, 'T_14, 'T_15, 'T_16, 'T_17, 'T_18, 'T_19, 'T_20, 'T_21> with get, set
     abstract avatars: AppwriteAvatars with get, set
-    abstract database: AppwriteDatabase<'T, 'T_1, 'T_2, 'T_3, 'T_4> with get, set
+    abstract database: AppwriteDatabase<'T> with get, set
     abstract functions: AppwriteFunctions<'T, 'T_1, 'T_2> with get, set
     abstract locale: AppwriteLocale<'T, 'T_1, 'T_2, 'T_3, 'T_4, 'T_5, 'T_6> with get, set
     abstract storage: AppwriteStorage<'T, 'T_1, 'T_2, 'T_3, 'T_4> with get, set
@@ -162,7 +162,7 @@ type [<AllowNullLiteral>] AppwriteAccount<'T, 'T_1, 'T_2, 'T_3, 'T_4, 'T_5, 'T_6
     /// </summary>
     /// <exception cref="AppwriteException" />
     /// <returns />
-    abstract get: unit -> Promise<'T>
+    abstract get: unit -> Promise<User>
     /// <summary>
     /// Create Account
     ///
@@ -567,7 +567,7 @@ type [<AllowNullLiteral>] AppwriteAvatars =
     /// <returns />
     abstract getQR: text: string * ?size: float * ?margin: float * ?download: bool -> URL
 
-type [<AllowNullLiteral>] AppwriteDatabase<'T, 'T_1, 'T_2, 'T_3, 'T_4> =
+type [<AllowNullLiteral>] AppwriteDatabase<'Doc> =
     /// <summary>
     /// List Documents
     ///
@@ -586,7 +586,7 @@ type [<AllowNullLiteral>] AppwriteDatabase<'T, 'T_1, 'T_2, 'T_3, 'T_4> =
     /// <param name="search" />
     /// <exception cref="AppwriteException" />
     /// <returns />
-    abstract listDocuments: collectionId: string * ?filters: string[] * ?limit: float * ?offset: float * ?orderField: string * ?orderType: string * ?orderCast: string * ?search: string -> Promise<ListDocumentsResult<'Rec>>
+    abstract listDocuments: collectionId: string * ?filters: string[] * ?limit: float * ?offset: float * ?orderField: string * ?orderType: string * ?orderCast: string * ?search: string -> Promise<ListDocumentsResult<'Doc>>
     /// <summary>
     /// Create Document
     ///
@@ -604,7 +604,7 @@ type [<AllowNullLiteral>] AppwriteDatabase<'T, 'T_1, 'T_2, 'T_3, 'T_4> =
     /// <param name="parentPropertyType" />
     /// <exception cref="AppwriteException" />
     /// <returns />
-    abstract createDocument: collectionId: string * data: obj * ?read: string[] * ?write: string[] * ?parentDocument: string * ?parentProperty: string * ?parentPropertyType: string -> Promise<'T_1>
+    abstract createDocument: collectionId: string * data: obj * ?read: string[] * ?write: string[] * ?parentDocument: string * ?parentProperty: string * ?parentPropertyType: string -> Promise<'Doc>
     /// <summary>
     /// Get Document
     ///
@@ -615,7 +615,7 @@ type [<AllowNullLiteral>] AppwriteDatabase<'T, 'T_1, 'T_2, 'T_3, 'T_4> =
     /// <param name="documentId" />
     /// <exception cref="AppwriteException" />
     /// <returns />
-    abstract getDocument: collectionId: string * documentId: string -> Promise<'T_2>
+    abstract getDocument: collectionId: string * documentId: string -> Promise<'Doc>
     /// <summary>
     /// Update Document
     ///
@@ -629,7 +629,7 @@ type [<AllowNullLiteral>] AppwriteDatabase<'T, 'T_1, 'T_2, 'T_3, 'T_4> =
     /// <param name="write" />
     /// <exception cref="AppwriteException" />
     /// <returns />
-    abstract updateDocument: collectionId: string * documentId: string * data: obj * ?read: string[] * ?write: string[] -> Promise<'T_3>
+    abstract updateDocument: collectionId: string * documentId: string * data: obj * ?read: string[] * ?write: string[] -> Promise<'Doc>
     /// <summary>
     /// Delete Document
     ///
@@ -641,7 +641,7 @@ type [<AllowNullLiteral>] AppwriteDatabase<'T, 'T_1, 'T_2, 'T_3, 'T_4> =
     /// <param name="documentId" />
     /// <exception cref="AppwriteException" />
     /// <returns />
-    abstract deleteDocument: collectionId: string * documentId: string -> Promise<'T_4>
+    abstract deleteDocument: collectionId: string * documentId: string -> Promise<unit>
 
 type [<AllowNullLiteral>] AppwriteFunctions<'T, 'T_1, 'T_2> =
     /// <summary>

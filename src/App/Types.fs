@@ -5,6 +5,7 @@ open AppwriteSdk
 type Page =
     | Login
     | Profile
+    | Browse
     | Home
     | Chat
     | Turtle
@@ -40,6 +41,12 @@ module Schema =
             isPrivate = false }
         interface HasId
 
+    type Configuration = {
+        ``$id`` : string
+        featured : string }
+    with
+        static member Create() = { ``$id`` = Unchecked.defaultof<_>; featured = "" }
+        interface HasId
     type Like = {
         doodleId: string
         userId: string
@@ -68,13 +75,18 @@ module Schema =
 
         interface HasId
 
-    type DoodleView = {
-        Doodle : Doodle
-        Likes : Like []
-        Views : Views []
-        MyLike : Like option
-    }
+type DoodleView = {
+    Doodle : Schema.Doodle
+    Likes : Schema.Like []
+    Views : Schema.Views []
+    MyLike : Schema.Like option
+    IsFeatured : bool
+}
 
+type SessionUser = {
+    User          : User
+    IsAdmin       : bool
+}
 
 type ExternalMessage =
     | NewTurtle

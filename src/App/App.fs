@@ -12,25 +12,51 @@ open Types
 type Model = {
     Page : Page
     Session : DoodleSession option
-    Doodle : Schema.Doodle}
+    Doodle : Schema.Doodle
+    }
 
 type Message =
+    | SignOut
     | SetPage of Page
     | SignedIn of User
     | SignedOut
     | External of ExternalMessage
+    | Initialized
 
-let init server =
+let init (server : Server) : Model * Cmd<Message> =
+    let serverInit dispatch =
+        server.Init(dispatch << External)
+        |> Promise.map (fun _ -> dispatch Initialized)
+        |> ignore
+
     let initPage = Home
     {
         Page = initPage
         Session = None
-        Doodle = Schema.Doodle.Create()    }, Cmd.none
+        Doodle = Schema.Doodle.Create() },
+        [ serverInit ]
 
-let update (server : Server) msg model =
-    //Fable.Core.JS.console.log($"{msg}")
+let update (server : Server) msg (model:Model) =
+    Fable.Core.JS.console.log($"{msg}")
 
     match msg with
+    | SignOut ->
+        server.SignOut() |> ignore
+        model, Cmd.none
+
+    | Initialized ->
+        let subscribe dispatch =
+            let unsub = (server.State |> Store.map (fun s -> s.User) |> Observable.distinctUntilChanged).Subscribe( fun sessionUserOpt ->
+                match sessionUserOpt with
+                | Some sessionUser ->
+                    dispatch (SignedIn sessionUser.User)
+                | None ->
+                    dispatch SignedOut
+            )
+            ()
+
+        model, [ subscribe ]
+
     | External m ->
         match m with
         | NewTurtle -> { model with Doodle = Schema.Doodle.Create() }, Cmd.ofMsg (SetPage Turtle)
@@ -48,14 +74,16 @@ let update (server : Server) msg model =
 
 let viewMain server model dispatch =
     match model.Session, model.Page with
-    | _, Home -> Home.view server (dispatch<<External)
+    | _, Home -> Home.view server
+    | _, Browse -> Browse.view server
     | _, Turtle -> Turtle.view model.Session model.Doodle
-    | Some session, Profile -> Profile.view session (dispatch<<External)
-    | _, _ -> Login.view server (dispatch<<External)
+    | Some session, Profile -> Profile.view  session server
+    | _, _ -> Login.view server
 
 let viewNav server page session dispatch =
     match session, page with
     | s, Home -> Home.nav server (dispatch<<External)
+    | s, Browse -> Browse.nav server (dispatch<<External)
     | s, Turtle -> fragment []
     | _, _ -> fragment []
 
@@ -64,21 +92,14 @@ let run ( p : Fable.Core.JS.Promise<'T> ) =
         |> Promise.map (fun x -> Fable.Core.JS.console.dir(x))
         |> Promise.catch (fun x -> Fable.Core.JS.console.error(x.Message))
 
+
 let view() =
     let server = new Server()
 
     let model, dispatch = server |> Store.makeElmish init (update server) ignore
 
-    let unsub = server.User.Subscribe( function
-        | Some u ->
-            //createNew server
-            //fetchAll server
-            dispatch (SignedIn u)
-        | None -> dispatch SignedOut
-    )
-
     Html.div [
-        disposeOnUnmount [ unsub; model; server ]
+        disposeOnUnmount [ model; server ]
 
         elAppend "head" [
             Html.style """
@@ -119,22 +140,22 @@ let view() =
 
         UI.header [
             UI.UI.navLogo "doodletoy" (fun _ -> dispatch (SetPage Home))
-            Bind.el(server.User, fun userOpt ->
+            Bind.el(server.State |> Store.map (fun s -> s.User), fun userOpt ->
                 UI.nav [
                     match userOpt with
-                    |Some u ->
+                    |Some su ->
                         fragment [
-                            UI.navLabel "Welcome"
-                            UI.navItem (u.name) (fun _ -> SetPage Profile |> dispatch)
+                            UI.navLabelMuted "Welcome"
+                            UI.navItem (su.User.name) (fun _ -> SetPage Profile |> dispatch)
                             UI.navLabel ("|")
-                            UI.navItem "Browse" (fun _ -> SetPage Home |> dispatch)
+                            UI.navItem "Browse" (fun _ -> SetPage Browse |> dispatch)
                             UI.navItem "New" (fun _ -> dispatch (External NewTurtle))
                             //Bind.el(model, fun m -> viewNav server m.Page m.Session dispatch)
-                            UI.navItem "Sign Out" (fun _ -> server.SignOut())
+                            UI.navItem "Sign Out" (fun _ -> server.SignOut() |> ignore)
                         ]
                     | None ->
                         fragment [
-                            UI.navItem "Browse" (fun _ -> SetPage Home |> dispatch)
+                            UI.navItem "Browse" (fun _ -> SetPage Browse |> dispatch)
                             UI.navItem "Sign In" (fun _ -> SetPage Login |> dispatch)
                         ]
                 ]
@@ -146,7 +167,7 @@ let view() =
             Attr.style [
                 Css.padding (rem 4.5)
             ]
-            Bind.el( model, fun m -> viewMain server m dispatch)
+            Bind.el( model, (fun m -> m.Page), (fun m -> viewMain server (Store.current m) dispatch))
         ]
     ]
 

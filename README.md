@@ -62,6 +62,33 @@ I wanted to be completely independent of React / Sutil / etc while I tested the 
 
 Eventually I converted to Sutil, but you should be able to convert this app very easily to Fable.React or Feliz (future me may have done this already, in which case I'll put the link here.)
 
+- Authorization
+
+Fun with github, google, discord. Github wanted email access explicitly set - needed to log output to diagnose. No twitter module.
+
+- Recording views for visitors
+
+Not logged in so no session
+
+- Styling
+
+Decided I could style the whole thing myself - Kevin Powell showed me many cool tips via his YT channel. No bulma.
+Using a reset
+
+- App
+
+Decided to make use of Fable.React.DrawingCanvas. Converted it to Sutil.
+
+Similar in style to shadertoy.com, but for turtle graphics. "turtletoy" -- alas it's been done. So that's how we ended
+up with doodletoy.
+
+- Language
+
+Extended the simple language to handle function calls and to define lambdas
+
+- Own hosting server
+
+Decided to keep things simple and give appwrite its own server so that we didn't need to map any ports to accomodate the existing sutil.dev website. This would remove one extra factor to consider when debugging OAUTH2 redirect_uri issues at least.
 
 
 See [Appendix A] for some details
@@ -87,3 +114,4 @@ https://fable.io/ts2fable
 https://appwrite.io/docs/installation
 
 https://appwrite.io/docs/getting-started-for-web
+

@@ -99,6 +99,10 @@ let headerStyle = [
     rule ".page-content" [
         //Css.backgroundColor bgColor
     ]
+
+    rule ".ui-muted" [
+        Css.color "darkgray"
+    ]
 ]
 type UI =
     static member flexColumn (children:SutilElement seq) =
@@ -122,6 +126,9 @@ type UI =
 
     static member navLabel label =
         UI.divc "ui-nav-item" [ text label ]
+
+    static member navLabelMuted label =
+        UI.divc "ui-nav-item ui-muted" [ text label ]
 
     static member navLogo label click =
         UI.divc "ui-nav-logo" [
