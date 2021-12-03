@@ -1,16 +1,12 @@
 module Login
 
 open Sutil
-open Sutil.DOM
 open Sutil.Attr
-open Sutil.Html
 open Feliz
 open type Feliz.length
-open Fable.Core
-open Fable.Core.JsInterop
-open AppwriteSdk
 open Sutil.Styling
 open UI
+open Types
 open Server
 
 type Model = {
@@ -40,8 +36,7 @@ let update (server : Server) msg model =
     | SetPassword pwd ->
         { model with Password = pwd }, Cmd.none
     | SignIn ->
-        server.SignIn(model.Email, model.Password)
-        model, Cmd.none
+        model, Cmd.OfPromise.attempt (server.SignIn) (model.Email, model.Password) SetError
 
 let style = [
     rule ".login" [
@@ -82,6 +77,10 @@ let style = [
         Css.justifyContentSpaceAround
         Css.alignItemsCenter
     ]
+
+    rule ".status" [
+        Css.color "red"
+    ]
 ]
 
 let view (server : Server) =
@@ -109,11 +108,21 @@ let view (server : Server) =
             ]
         ]
 
+        Html.div [
+            class' "status"
+            Html.text (model .> (fun m -> m.Status))
+        ]
+
         Html.span " "
 
         Html.button [
             text "Sign In"
             Ev.onClick (fun e -> dispatch SignIn)
+        ]
+
+        Html.button [
+            text "Register"
+            Ev.onClick (fun e -> server.Dispatch RegisterNewAccount)
         ]
 
         Html.span "or"
@@ -135,8 +144,4 @@ let view (server : Server) =
             Ev.onClick (fun e -> server.SignInWith("discord"))
         ]
 
-        Html.div [
-            class' "status"
-            Html.text (model .> (fun m -> m.Status))
-        ]
     ] |> withStyle style

@@ -8,6 +8,9 @@ open Sutil
 open Types
 open Types.Schema
 
+[<Emit("undefined")>]
+let jsUndefined : obj = jsNative
+
 let private chatCollectionID = "617c11bb63b82"
 
 let private serviceUrl = "https://solochimp.com/v1"
@@ -165,6 +168,11 @@ type Server() =
     member _.Dispatch (msg : ExternalMessage) =
         dispatch msg
 
+    member _.Register(email:string, password:string, name : string) =
+        promise {
+            do! sdk.account.create(email, password, name)
+        }
+
     member _.SignIn(email:string, password:string) =
         promise {
             try     sdk.account.deleteSession "current" |> ignore
@@ -287,6 +295,9 @@ type Server() =
             }
         }
 
+    member _.DeleteDoodle( id : string ) =
+        sdk.database.deleteDocument(doodlesCollectionID,id)
+
     member _.GetDoodle( id : string ) =
         sdk.database.getDocument(doodlesCollectionID,id) : JS.Promise<Doodle>
 
@@ -334,12 +345,13 @@ type DoodleSession(server : Server, user : User) =
     // member _.SignOut() =
     //     server.SignOut()
 
-    member _.Save( doc : Types.Schema.Doodle ) =
+    member _.Save( doc : Types.Schema.Doodle ) : JS.Promise<Schema.Doodle> =
         let dateTimeNow = Math.Truncate(double(DateTime.UtcNow.Ticks) / double(TimeSpan.TicksPerSecond))
         let isUndefined x = (x :> obj) = (None :> obj)
         let data =
             {  doc
                 with
+                    ``$id`` = if doc.ownedBy = user._id then doc._id else (jsUndefined :?> string)
                     ownedBy = user._id
                     ownedByName = user.name
                     modifiedOn = dateTimeNow

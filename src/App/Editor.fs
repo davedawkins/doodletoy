@@ -1,4 +1,4 @@
-module Turtle
+module Editor
 
 open Sutil
 open Server
@@ -10,6 +10,7 @@ open Sutil.DOM
 open Types
 open System
 open Sutil.Styling
+open AppwriteSdk
 
 module Ticker =
 
@@ -25,6 +26,56 @@ module Ticker =
             interval
         s
 
+module Storage =
+
+    open Fable.Core.JsInterop
+    open Fable.Core.JS
+    open Fable.Core
+
+    let localStorage = Browser.Dom.window.localStorage
+
+    [<Emit("delete $1[$0]")>]
+    let delete id map : unit = jsNative
+
+    let safeId (id : string) =
+        match isNullOrUndefined (id) with
+        | true -> "_new_"
+        | false -> id
+
+    let getDoodles() : obj =
+        match localStorage.getItem("doodles") with
+        | null -> upcast {| |}
+        | x -> Fable.Core.JS.JSON.parse x
+
+    let setDoodles( map : obj ) =
+        localStorage.setItem("doodles", JSON.stringify map)
+
+        Fable.Core.JS.console.log("== Doodles ==")
+        Fable.Core.JS.console.dir(getDoodles())
+
+    let load( id : string ) : Schema.Doodle option =
+        let id' = safeId id
+        let map = getDoodles()
+        match isIn id' map with
+        | false -> None
+        | true -> map?(id') |> Some
+
+    let clear (id : string) : unit =
+        setDoodles {| |}
+        // let id' = safeId id
+        // let map = getDoodles()
+        // if isIn id' map then
+        //     delete id' map
+        //     setDoodles(map)
+
+    let save (d : Schema.Doodle) =
+        let map = {| |}
+        map?current <- d
+        setDoodles map
+
+    let get() : Schema.Doodle option =
+        load "current"
+
 type Model = {
     Doodle : Types.Schema.Doodle
     TickCount : int
@@ -32,11 +83,15 @@ type Model = {
 }
 
 type Message =
+    | Init of Schema.Doodle
     | SetName of string
     | SetDescription of string
     | SetSource of string
     | Tick
+    | Discard
     | Save
+    | SaveLocal
+    | ClearLocal of string
     | Saved of Schema.Doodle
     | Error of Exception
 
@@ -57,54 +112,81 @@ let drawTurtle (source :string) =
     match input with
     | "" -> drawMessage "Create your own drawing, or load an example to get started" "black"
     | _ ->
-        match (TurtleParser.generate input) with
-        // Error messages from crude parser are currently useless
-        | TurtleParser.Parser.ParseResult.Error msg -> drawMessage "Oops! Not a turtle" "orange"
-        | TurtleParser.Parser.ParseResult.Success d -> fun() -> d
+        try
+            match (TurtleParser.generate input) with
+            // Error messages from crude parser are currently useless
+            | TurtleParser.Parser.ParseResult.Error msg -> drawMessage $"Oops! Not a turtle: {msg}" "orange"
+            | TurtleParser.Parser.ParseResult.Success d -> fun() -> d
+        with
+        | x -> drawMessage $"Oops! Not a turtle: {x.Message}" "orange"
 
 let turtleFromModel model = (drawTurtle model.Doodle.source)()
 
-let init doodle =
+let init (doodle : Schema.Doodle) =
+    Fable.Core.JS.console.log("ID=" + doodle._id)
+    let backup =
+        try
+            Storage.get()
+        with x ->
+            Fable.Core.JS.console.log(x.Message)
+            None
+    let doodle', edited' =
+        match backup with
+        | Some d when d._id = doodle._id && d.modifiedOn = doodle.modifiedOn -> d, true
+        | _ -> doodle, false
+
     {
         TickCount = 0
-        IsEdited = false
-        Doodle = doodle
+        IsEdited = edited'
+        Doodle = doodle'
     },
     [ fun d -> Fable.Core.JS.setInterval (fun _ -> d Tick) 40 |> ignore ]
 
-let update (session:DoodleSession option) msg (model : Model)=
+let update (server : Server) (session:DoodleSession option) msg (model : Model)=
     Fable.Core.JS.console.log($"{msg}")
     match msg with
+    | Init d ->
+        { model with Doodle = d; IsEdited = false }, Cmd.none
     | Error x -> model, Cmd.none
-    | Saved t ->
-        { model with Doodle = t; IsEdited = false }, Cmd.none
+    | Saved d ->
+        let _cacheId = model.Doodle._id
+        Fable.Core.JS.console.log($"ID after save is {d._id}")
+        { model with Doodle = d; IsEdited = false }, Cmd.ofMsg (ClearLocal _cacheId)
+    | Discard ->
+        let _cacheId = model.Doodle._id
+        let cmd =
+            if Fable.Core.JsInterop.isNullOrUndefined model.Doodle._id then
+                Schema.Doodle.Create() |> Init |> Cmd.ofMsg
+            else
+                let d = server.GetDoodle( model.Doodle._id )
+                Cmd.OfPromise.result (d |> Promise.map Init)
+        model, Cmd.batch [ cmd; Cmd.ofMsg SaveLocal; Cmd.ofMsg (ClearLocal _cacheId) ]
     | Save ->
         match session with
         | Some s ->
             model, Cmd.OfPromise.either (s.Save) (model.Doodle) Saved Error
         | None -> model, Cmd.none
     | SetName s ->
-        { model with Doodle = { model.Doodle with name = s }; IsEdited = true }, Cmd.none
+        { model with Doodle = { model.Doodle with name = s }; IsEdited = true }, Cmd.ofMsg SaveLocal
     | SetDescription s ->
-        { model with Doodle = { model.Doodle with description = s }; IsEdited = true }, Cmd.none
+        { model with Doodle = { model.Doodle with description = s }; IsEdited = true }, Cmd.ofMsg SaveLocal
     | SetSource s ->
-        { model with Doodle = { model.Doodle with source = s }; IsEdited = true }, Cmd.none
+        { model with Doodle = { model.Doodle with source = s }; IsEdited = true }, Cmd.ofMsg SaveLocal
+    | ClearLocal id ->
+        Storage.clear id
+        model, Cmd.none
+    | SaveLocal ->
+        Storage.save model.Doodle
+        model, Cmd.none
     | Tick ->
         { model with TickCount = model.TickCount + 1}, Cmd.none
-
-let nav model dispatch =
-    UI.navDropdown "Examples" [
-        UI.navItem "Clock" (fun _ -> SetSource Examples.clockSource |> dispatch)
-        UI.navItem "Squares" (fun _ -> SetSource Examples.squareSpiralsSource |> dispatch)
-        UI.navItem "Circles" (fun _ -> SetSource Examples.circleSpiralsSource |> dispatch)
-    ]
 
 let style = [
     rule ".turtle-details" [
         Css.gap (rem 0.5)
         Css.flexShrink 1
         Css.flexGrow 1
-        Css.maxWidth (vh 90)
+        Css.maxWidth (vh 65)
     ]
     rule "label" [
         Css.width (px 100)
@@ -117,6 +199,7 @@ let style = [
         Css.height (rem 5)
     ]
     rule ".turtle-details .buttons" [
+        Css.gap (rem 1)
         Css.justifyContentCenter
     ]
 
@@ -137,6 +220,7 @@ let style = [
         Css.fontFamily "Consolas, monospace"
         Css.fontSize (pt 10)
     ]
+
 ]
 
 let turtleView turtle =
@@ -193,9 +277,18 @@ let _view readonly model dispatch =
                 UI.flexRow [
                     Attr.className "buttons"
                     Html.button [
-                        text "Save"
+                        //Bind.attr("disabled", model |> Store.map (fun m -> m.IsEdited |> not))
+                        Bind.el(model |> Store.map (fun m -> m.IsEdited),
+                            function true -> text "Save *" | false -> text "Save"
+                        )
+                        //text "Save"
                         Ev.onClick (fun _ -> dispatch Save)
                     ]
+                    Bind.visibility (model |> Store.map (fun m -> m.IsEdited)) <|
+                        Html.button [
+                            text "Discard"
+                            Ev.onClick (fun _ -> dispatch Discard)
+                        ]
                 ]
         ]
 
@@ -205,6 +298,6 @@ let _view readonly model dispatch =
         ]
     ] |> withStyle style
 
-let view session turtle =
-    let model, dispatch = turtle |> Store.makeElmish init (update session) ignore
+let view (server : Server) (session : DoodleSession option) doodle =
+    let model, dispatch = doodle |> Store.makeElmish init (update server session) ignore
     _view (session.IsNone) model dispatch

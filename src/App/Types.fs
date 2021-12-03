@@ -4,11 +4,12 @@ open Sutil.DOM
 open AppwriteSdk
 type Page =
     | Login
+    | Register
     | Profile
     | Browse
     | Home
+    | Editor
     | Chat
-    | Turtle
 
 module Schema =
     [<AllowNullLiteral>]
@@ -89,5 +90,6 @@ type SessionUser = {
 }
 
 type ExternalMessage =
-    | NewTurtle
-    | EditTurtle of Schema.Doodle
+    | RegisterNewAccount
+    | NewDoodle
+    | EditDoodle of Schema.Doodle

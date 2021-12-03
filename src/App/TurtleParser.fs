@@ -320,7 +320,12 @@ let expectString (tval : Val) =
     tval |> function String s -> s|_ -> failwith "Not a string"
 
 let optionalDrawCommand (tval : Val) =
-    tval |> function Draw cmd -> cmd|_ -> Sub []
+    tval
+    |> function
+    | Draw cmd -> cmd
+    | Func f -> failwith $"Not enough arguments"
+    | Unit -> Sub []
+    | _ -> failwith "Function has a result but is unused"
 
 type Context = {
     Vars : Map<string,Val>
@@ -512,7 +517,7 @@ and evalLambda context maybeLambda (args : Expr list)  =
 
 and evalFunc (context : Context) name args =
     if (not (context.Vars.ContainsKey name)) then
-        failwith (sprintf "No function found called '%s'" name)
+        failwith (sprintf "No function called '%s'" name)
     let f = context.Vars.[name]
     evalLambda context f args
 
@@ -566,6 +571,9 @@ type BuiltIn =
     static member Of ( f : string -> DrawCommand ) =
         Func (Draw<<f<<expectString)
 
+    static member Of ( f : float -> DrawCommand ) =
+        Func (Draw<<f<<expectFloat)
+
 let clear (fillColor:string) =
     Sub [
         Canvas (FillColor fillColor)
@@ -596,6 +604,7 @@ let evalProgram program =
             .Add( "turn", BuiltIn.Of(Turn))
             .Add( "penHue", BuiltIn.Of(hue))
             .Add( "penColor", BuiltIn.Of(PenColor))
+            .Add( "penWidth", BuiltIn.Of(Canvas<<LineWidth))
             .Add( "clear", BuiltIn.Of(clear))
             .Add( "rotateHue", BuiltIn.Of(RotateHue))
             .Add( "increaseWidth", BuiltIn.Of(IncreaseWidth))
@@ -608,15 +617,17 @@ let evalProgram program =
             .Add( "pop", BuiltIn.Of(Pop))
 
             .Add( "log", BuiltIn.Of(logVal))
-    try
-        let drawing = evalProgramWithVars vars program
-        //for c in (drawing |> Array.ofList) do
-        //    Fable.Core.JS.console.dir($"{c}")
-        drawing
-    with
-    | x ->
-        Fable.Core.JS.console.error(x.Message)
-        []
+
+    evalProgramWithVars vars program
+    // try
+    //     let drawing = evalProgramWithVars vars program
+    //     //for c in (drawing |> Array.ofList) do
+    //     //    Fable.Core.JS.console.dir($"{c}")
+    //     drawing
+    // with
+    // | x ->
+    //     Fable.Core.JS.console.error(x.Message)
+    //     []
 
 let makeLazy x = fun () -> x
 

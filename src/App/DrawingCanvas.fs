@@ -350,6 +350,7 @@ let translateTurtle turtle cmd =
 
         | Forward n ->
             if (turtle.LineCount = 0 && turtle.IsPenDown) then
+                yield LineJoin LineJoinRound
                 yield BeginPath
                 yield MoveTo (0.0, 0.0)
 
@@ -429,6 +430,7 @@ let runDrawing (ctx : CanvasRenderingContext2D) drawing =
     ctx.canvas.height <- h
     ctx.translate(w/2.0,h/2.0)
     ctx.scale(w / 1000.0, h / 1000.0)
+    ctx.lineJoin <- "round"
     drawing |> (ctx |> runCommands (makeTurtle()))
 
 #if USE_SUTIL

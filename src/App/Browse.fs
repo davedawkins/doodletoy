@@ -104,7 +104,7 @@ module DoodleView =
     ]
 
     let private viewRecord (server:Server)  (options : Options) dispatch (m : Model) =
-        let make() = Turtle.drawTurtle m.Doodle.source ()
+        let make() = Editor.drawTurtle m.Doodle.source ()
         let drawingS = Store.make (make())
         let refresh() =
             Store.set drawingS (make())
@@ -120,8 +120,8 @@ module DoodleView =
             disposeOnUnmount [ drawingS ]
 
             UI.divc "doodle-view" [
-                Turtle.turtleView drawingS
-                Ev.onClick (fun _ -> EditTurtle m.Doodle |> server.Dispatch)
+                Editor.turtleView drawingS
+                Ev.onClick (fun _ -> EditDoodle m.Doodle |> server.Dispatch)
 
                 if options.Animation = Hover then
                     Ev.onMouseEnter (fun _ -> startAnimate())
@@ -211,8 +211,8 @@ open DoodleView
 
 let view (server : Server) =
     let model, dispatch = server |> Store.makeElmish init (update server) ignore
-    let featured() = Turtle.drawTurtle Examples.clockSource ()
-    let drawingStore = Turtle.Ticker.Create 40 featured (fun _ _ -> featured()) ignore
+    let featured() = Editor.drawTurtle Examples.clockSource ()
+    let drawingStore = Editor.Ticker.Create 40 featured (fun _ _ -> featured()) ignore
 
     let options = {
         Animation = Hover
@@ -228,12 +228,3 @@ let view (server : Server) =
             Bind.each( model |> Store.map (fun m -> m.Doodles), DoodleView.view server options, (fun r -> r._id) )
         ] |> withStyle style
     ]
-
-let nav (server : Server) (dispatch)=
-    Bind.el( server.State |> Store.map (fun s -> s.User), fun user ->
-        match user with
-        | None -> fragment []
-        | Some u ->
-            UI.navItem "New" (fun _ -> dispatch NewTurtle)
-    )
-
