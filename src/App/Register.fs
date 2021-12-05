@@ -15,7 +15,7 @@ type Model = {
     Name : string
     Verification : string
     Status : string
-    RegistrationCompleted : bool
+    //RegistrationCompleted : bool
 }
 
 type Message =
@@ -29,7 +29,7 @@ type Message =
     | Registered
 
 let init() =
-    { Email = ""; Password = ""; Verification = ""; Name = ""; Status = ""; RegistrationCompleted = false }, Cmd.none
+    { Email = ""; Password = ""; Verification = ""; Name = ""; Status = "" }, Cmd.none
 
 [<AutoOpen>]
 module Validation =
@@ -67,7 +67,8 @@ let update (server : Server) msg model =
     | SetVerification pwd ->
         { model with Verification = pwd }, Cmd.none
     | Registered ->
-        { model with RegistrationCompleted = true }, Cmd.none
+        server.Dispatch RegisteredNewAccount
+        model, Cmd.none
     | Register ->
         try
             verify model

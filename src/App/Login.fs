@@ -71,7 +71,7 @@ let style = [
         Css.width (rem 15)
     ]
 
-    rule ".login button" [
+    rule ".login button, .login a" [
         Css.width (rem 15)
         Css.displayInlineFlex
         Css.justifyContentSpaceAround
@@ -80,6 +80,10 @@ let style = [
 
     rule ".status" [
         Css.color "red"
+    ]
+
+    rule ".login a" [
+        Css.textAlignCenter
     ]
 ]
 
@@ -120,9 +124,10 @@ let view (server : Server) =
             Ev.onClick (fun e -> dispatch SignIn)
         ]
 
-        Html.button [
+        Html.a [
+            Attr.href "#"
             text "Register"
-            Ev.onClick (fun e -> server.Dispatch RegisterNewAccount)
+            Ev.onClick (fun e -> e.preventDefault(); server.Dispatch RegisterNewAccount)
         ]
 
         Html.span "or"

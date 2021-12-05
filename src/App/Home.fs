@@ -65,6 +65,7 @@ let style = [
 
     rule ".feature-welcome h1" [
         Css.fontSize (rem 2)
+        Css.marginTop (rem 2)
     ]
 
     rule ".home" [
@@ -105,6 +106,19 @@ let style = [
     rule ".card li::marker" [
         Css.color "red"
     ]
+
+    rule ".loading" [
+        Css.displayFlex
+        Css.alignItemsCenter
+        Css.justifyContentCenter
+        Css.width (px 400)
+        Css.height (px 440)
+    ]
+
+    rule ".loading i" [
+        Css.fontSize (rem 8)
+        Css.color "#eeeeee"
+    ]
 ]
 
 open Browse.DoodleView
@@ -129,7 +143,10 @@ let view (server : Server) =
                     match doodleOpt with
                     | Some doodle ->
                         Browse.DoodleView.view server options doodle
-                    | None -> fragment []
+                    | None ->
+                        UI.divc "loading" [
+                            Html.i [ Attr.className "fas fa-spinner fa-pulse" ]
+                        ]
                     // let source = doodle |> Option.map (fun d -> d.source) |> Option.defaultValue (Examples.clockSource)
                     // let featured() = Turtle.drawTurtle source ()
                     // let drawingStore = Turtle.Ticker.Create 40 featured (fun _ _ -> featured()) ignore

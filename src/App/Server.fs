@@ -2,7 +2,6 @@ module Server
 
 open System
 open Fable.Core
-open Fable.Core.JsInterop
 open AppwriteSdk
 open Sutil
 open Types
@@ -10,6 +9,9 @@ open Types.Schema
 
 [<Emit("undefined")>]
 let jsUndefined : obj = jsNative
+
+let appUrl = "http://localhost:8080/"
+//let appUrl = "https://doodletoy.net/"
 
 let private chatCollectionID = "617c11bb63b82"
 
@@ -21,10 +23,12 @@ let private viewsCollectionId = "619bda67c7d02"
 let private visitorEmail = "visitor@solochimp.com"
 let private adminTeamId = "619d6583db1da"
 let private configurationCollectionId = "619dfd44d6fb5"
+
 type ServerModel = {
     User : SessionUser option
     Configuration : Configuration
 }
+
 type Server() =
     let mutable disposables : IDisposable list = []
     let mutable dispatch : (ExternalMessage -> unit) = ignore
@@ -40,9 +44,6 @@ type Server() =
 
     let sdk = AppwriteSdk.Create()
 
-    //let userStore : IStore<User option> = Store.make None
-    //let messages : IStore<ChatMessage> = Store.make null
-
     let logUser (userOpt : User option) =
         JS.console.log("LogUser")
         JS.console.dir(userOpt)
@@ -56,8 +57,6 @@ type Server() =
 
     let setUser  =
         logUser >> filterVisitor //>> getTeam >> setUserStore
-
-    //let safeMessages = messages |> Store.filter (not << isNull)
 
     let logError (msg : string) =
         JS.console.error(msg)
@@ -89,11 +88,6 @@ type Server() =
         }
 
         let! configResult = sdk.database.listDocuments(configurationCollectionId) : JS.Promise<ListDocumentsResult<Configuration>>
-
-        // if configResult.sum = 0 then
-        //     let! newConfig = sdk.database.createDocument(configurationCollectionId, {
-        //         featured = ""
-        //     })
 
         let config =
             match configResult.sum with
@@ -130,12 +124,6 @@ type Server() =
             |> Promise.catch (fun x -> logError(x.Message))
             |> ignore
 
-    //let subscribe() =
-    //    sdk.subscribe(
-    //        !^ $"collections.{chatCollectionID}.documents",
-    //        fun r -> Store.set messages (r.payload :> ChatMessage)
-    //    )
-
     let dispose() =
         disposables |> List.iter (fun d -> d.Dispose())
 
@@ -145,32 +133,43 @@ type Server() =
     let addUnsub unsub =
         disposables <- Helpers.disposable unsub :: disposables
 
-    // Initialize
-
-    do
-        //subscribe() |> addUnsub
-        //addDisposable messages
-        //addDisposable userStore
-        //getSessionUser()
-        ()
-    // Members
-
     member _.State : IObservable<ServerModel> = upcast model
 
     member _.SessionUser = current().User
     member _.Configuration = current().Configuration
 
-    member _.Init( dispatchExternal : ExternalMessage -> unit ) =
-        dispatch <- dispatchExternal
-        initSdk()
-        startSession()
+    member this.Init( dispatchExternal : ExternalMessage -> unit, urlParams : Map<string,string> ) =
+        promise {
+            dispatch <- dispatchExternal
+            initSdk()
+            do! startSession()
+
+            if urlParams.ContainsKey("userId") && urlParams.ContainsKey("secret") then
+                // history.pushState(null, "", location.href.split("?")[0]);
+                let userId, secret = urlParams.["userId"], urlParams.["secret"]
+
+                Browser.Dom.history.pushState(null, "", Browser.Dom.window.location.href.Split('?').[0])
+
+                try
+                    do! sdk.account.updateVerification(userId, secret)
+                    do! this.SignOut()
+
+                    (Ok "Email verified - please sign in") |> Verified |> dispatch
+                with
+                | x ->
+                    (Result.Error x.Message) |> Verified |> dispatch
+        }
 
     member _.Dispatch (msg : ExternalMessage) =
         dispatch msg
 
-    member _.Register(email:string, password:string, name : string) =
+    member _.SendVerificationEmail() =
+        sdk.account.createVerification( appUrl ) : JS.Promise<unit>
+
+    member this.Register(email:string, password:string, name : string) =
         promise {
             do! sdk.account.create(email, password, name)
+            do! this.SignIn(email,password)
         }
 
     member _.SignIn(email:string, password:string) =
@@ -186,11 +185,8 @@ type Server() =
     member _.SignInWith(provider : string) =
         sdk.account.deleteSession "current"
         |> ignoreError (fun () -> // FIXME
-            sdk.account.createOAuth2Session( provider, "http://localhost:8080/", "http://localhost:8080/") |> ignore
+            sdk.account.createOAuth2Session( provider, appUrl, appUrl ) |> ignore
         )
-
-//    member _.Messages : IObservable<ChatMessage> =
-//        safeMessages
 
     member _.NumLikes( t : Doodle ) : JS.Promise<int> =
         promise {
@@ -258,7 +254,6 @@ type Server() =
         else
             do! sdk.database.updateDocument(configurationCollectionId,data._id,data, [| "*" |], [| $"team:{adminTeamId}"|] )
             setConfiguration(data)
-
     }
 
     member _.SignOut() =
@@ -341,9 +336,6 @@ type DoodleSession(server : Server, user : User) =
                 chatCollectionID,
                 {| message = message; user = user.name; ts = System.DateTime.Now.Ticks |}
             ))
-
-    // member _.SignOut() =
-    //     server.SignOut()
 
     member _.Save( doc : Types.Schema.Doodle ) : JS.Promise<Schema.Doodle> =
         let dateTimeNow = Math.Truncate(double(DateTime.UtcNow.Ticks) / double(TimeSpan.TicksPerSecond))

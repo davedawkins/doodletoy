@@ -198,6 +198,7 @@ type UI =
                         Css.backgroundColor "white"
                         Css.borderRadius (px 4)
                         Css.gap (rem 1)
+                        Css.alignItemsCenter
                     ]
                     if (options.ShowCancel) then
                         Html.div [

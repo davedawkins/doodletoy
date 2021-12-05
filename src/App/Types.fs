@@ -5,6 +5,8 @@ open AppwriteSdk
 type Page =
     | Login
     | Register
+    | AwaitingVerification
+    | Registered
     | Profile
     | Browse
     | Home
@@ -90,6 +92,8 @@ type SessionUser = {
 }
 
 type ExternalMessage =
+    | Verified of Result<string,string>
+    | RegisteredNewAccount
     | RegisterNewAccount
     | NewDoodle
     | EditDoodle of Schema.Doodle

@@ -12,6 +12,7 @@
     <Compile Include="TurtleParser.fs" />
     <Compile Include="UI.fs" />
     <Compile Include="Server.fs" />
+    <Compile Include="Verify.fs" />
     <Compile Include="Register.fs" />
     <Compile Include="Login.fs" />
     <Compile Include="Chat.fs" />
