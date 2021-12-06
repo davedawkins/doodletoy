@@ -135,6 +135,11 @@ module Parser =
             Success((), input |> skipSpaceTab )
         Parser inner
 
+    let eatSpaceTabEol =
+        let inner input =
+            Success((), input |> skipSpaceTabEol )
+        Parser inner
+
     let parseEnd =
         let inner input =
             if (atEnd input) then
@@ -296,11 +301,12 @@ type Expr =
     | Str of string
     | Id of string * Expr list
     | Bin of (BinOp*Expr*Expr)
-
-type TCommand =
+    | Cmd of TCommand
+and TCommand =
     | TCall of (string * Expr list)
     | TBlock of TCommand list
     | TRepeat of (Expr*TCommand list)
+    | TIf of (Expr * TCommand list * TCommand list option)
     | TLet of (string*Expr)
 
 type Val =
@@ -328,7 +334,7 @@ let optionalDrawCommand (tval : Val) =
     | _ -> failwith "Function has a result but is unused"
 
 type Context = {
-    Vars : Map<string,Val>
+    mutable Vars : Map<string,Val>
 }
 
 let parseNum = eatSpaceTab ..>. parseNumber |> map Num
@@ -381,7 +387,10 @@ and parseFun =
     (parseIdent .>>. parseSequence parseExpr) |> map Id
 
 and parseLambda =
-    parseKeyword "fun" ..>. parseIdent .>.. parseKeyword "->" .>>. parseExpr
+    parseKeyword "fun"
+        ..>. parseIdent
+        .>.. (parseKeyword "->" .>>. eatSpaceTabEol)
+        .>>. ((parseBlock |> map (TBlock >> Cmd)) <|> (parseCommand |> map Cmd) <|> parseExpr)
         |> map Lambda
 
 and parseSubExpr =
@@ -401,21 +410,30 @@ and parseAddExpr =
         run p input |> buildBinTree
     Parser inner
 
+and parseRelOpExpr =
+    let inner input =
+        let p = parseAddExpr
+                    .>>. ((parseRelOp .>>. parseAddExpr) |> parseSequence |> optional)
+        run p input |> buildBinTree
+    Parser inner
+
 and parseExpr =
-    eatSpaceTab ..>. parseAddExpr
+    eatSpaceTab ..>. parseRelOpExpr
 
-let parseNumericCommand keyword =
+and parseNumericCommand keyword =
     (andThen (parseKeyword keyword) parseExpr)
 
-let parseStringCommand keyword =
+and parseStringCommand keyword =
     (andThen (parseKeyword keyword) parseExpr)
 
-let rec parseCommand =
+and parseCommand =
     [
+        ((parseNumericCommand "if") .>>. parseBlock .>>. (optional (parseKeyword "else" ..>. parseBlock)))
+            |> map (fun (((_,n),cmd),elseCmd) -> TIf (n,cmd,elseCmd) )
         ((parseNumericCommand "repeat") .>>. parseBlock)
             |> map (fun ((_,n),cmd) -> TRepeat (n,cmd) )
         parseIdent .>>. (parseSequence parseExpr) .>.. parseDelim |> map TCall
-        (parseKeyword "let" ..>. parseIdent .>.. parseKeyword "=" .>>. parseExpr)
+        (parseKeyword "let" ..>. parseIdent .>.. parseKeyword ":=" .>>. parseExpr)
             |> map (fun (id,e) -> TLet (id,e))
 
     ] |> choose
@@ -459,6 +477,13 @@ and parseBlock =
 //  add:    mul [ ('+'|'-')  mul ]
 //  expr:   add
 
+let cloneVars (map : Map<string,Val>) =
+    map |> Map.toArray |> Map.ofArray
+
+let cloneContext (context) =
+    context
+    //{ context with Vars = cloneVars context.Vars }
+
 let parse input =
     let r = run parseCommands input
     match r with
@@ -488,8 +513,8 @@ let rec eval context (expr : Expr) : Val =
     | Bin (Mod,a,b) -> (valOf a) % (valOf b) |> Float
     | Bin (Eq,a,b) -> (valOf a) = (valOf b) |> ofBool |> Float
     | Bin (Ne,a,b) -> (valOf a) <> (valOf b) |> ofBool |> Float
-    | Bin (Lt,a,b) -> (valOf a) <= (valOf b) |> ofBool |> Float
-    | Bin (Le,a,b) -> (valOf a) >= (valOf b) |> ofBool |> Float
+    | Bin (Lt,a,b) -> (valOf a) < (valOf b) |> ofBool |> Float
+    | Bin (Le,a,b) -> (valOf a) <= (valOf b) |> ofBool |> Float
     | Bin (Gt,a,b) -> (valOf a) > (valOf b) |> ofBool |> Float
     | Bin (Ge,a,b) -> (valOf a) >= (valOf b) |> ofBool |> Float
     | Num n -> n |> Float
@@ -501,19 +526,22 @@ let rec eval context (expr : Expr) : Val =
         | x ->
             Fable.Core.JS.console.error($"{id}: {x.Message}")
             0.0 |> Float
+    | Cmd c ->
+        evalCmd context c |> Draw
+
 and evalLambda context maybeLambda (args : Expr list)  =
     //Fable.Core.JS.console.log($"callf {fe} {args0}")
     match maybeLambda, args with
     //| Func f, [] ->
     //    f Unit
     | Func f, [x] ->
-        f (eval context x)
+        f (eval (cloneContext context) x)
     | Func f, x :: xs ->
         let partialResult = f (eval context x)
         evalLambda context partialResult xs
     | immediate, [] -> immediate
     | f, _ ->
-        failwith $"Not a function: {f}"
+        failwith $"Not a function: {f} args = {args |> Array.ofList}"
 
 and evalFunc (context : Context) name args =
     if (not (context.Vars.ContainsKey name)) then
@@ -521,11 +549,35 @@ and evalFunc (context : Context) name args =
     let f = context.Vars.[name]
     evalLambda context f args
 
-// Build a Drawing from a parse tree, evaluating Exprs
+and evalCmds (context : Context) cmds =
+    cmds |> List.fold (fun list cmd -> list @ [evalCmd context cmd]) []
+
+and evalCmd (context : Context) cmd =
+    match cmd with
+    | TBlock block -> Sub (evalCmds (cloneContext context) block)
+    | TIf (e,block,elseBlockOpt) ->
+        let n = (eval context e) |> expectFloat
+        if n <> 0.0 then
+            Sub (evalCmds (cloneContext context) block)
+        else
+            match elseBlockOpt with
+            | None -> Sub []
+            | Some elseBlock -> Sub (evalCmds (cloneContext context) elseBlock)
+    | TRepeat (e,block) ->
+        let n = (eval context e) |> expectFloat
+        ListHelpers.loop [1..(int n)] (fun _ -> evalCmds context block)
+    | TLet (id,e) ->
+        context.Vars <- context.Vars.Add(id,eval context e)
+        Sub []
+    | TCall (name,args) ->
+        //_log($"TCall {name}")
+        evalFunc (cloneContext context) name args
+            |> optionalDrawCommand// Build a Drawing from a parse tree, evaluating Exprs
+
 let evalProgramWithVars (vars : Map<string,Val>) program =
 
     let mutable context = { Vars = vars }
-
+(*
     let rec evalCmds cmds =
         cmds |> List.fold (fun list cmd -> list @ [evalCmd cmd]) []
     and evalCmd cmd =
@@ -541,8 +593,8 @@ let evalProgramWithVars (vars : Map<string,Val>) program =
             //_log($"TCall {name}")
             evalFunc context name args
                 |> optionalDrawCommand
-
-    evalCmds program
+*)
+    evalCmds context program
 
 let logVal (a : Val) = _log($"{a}")
 
@@ -597,6 +649,8 @@ let evalProgram program =
             .Add( "frac", BuiltIn.Of(fun (t:float) -> t - Math.Truncate t))
             .Add( "sin", BuiltIn.Of(Math.Sin))
             .Add( "cos", BuiltIn.Of(Math.Cos))
+            .Add( "abs", BuiltIn.Of(fun (n:float) -> float(Math.Abs(n))))
+            .Add( "sign", BuiltIn.Of(fun (n:float) -> float(Math.Sign(n))))
             .Add( "round", BuiltIn.Of(fun (n:float) -> Math.Round(n)))
             .Add( "sqrt", BuiltIn.Of(Math.Sqrt))
 

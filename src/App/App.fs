@@ -82,7 +82,7 @@ let init (server : Server) : Model * Cmd<Message> =
         [ serverInit ]
 
 let rec update (server : Server) (confirmed : bool) msg (model:Model) =
-    Fable.Core.JS.console.log($"{msg}")
+    //Fable.Core.JS.console.log($"{msg}")
 
     match msg with
     | Confirmed msg ->

@@ -123,7 +123,7 @@ let drawTurtle (source :string) =
 let turtleFromModel model = (drawTurtle model.Doodle.source)()
 
 let init (doodle : Schema.Doodle) =
-    Fable.Core.JS.console.log("ID=" + doodle._id)
+    //Fable.Core.JS.console.log("ID=" + doodle._id)
     let backup =
         try
             Storage.get()
@@ -143,14 +143,14 @@ let init (doodle : Schema.Doodle) =
     [ fun d -> Fable.Core.JS.setInterval (fun _ -> d Tick) 40 |> ignore ]
 
 let update (server : Server) (session:DoodleSession option) msg (model : Model)=
-    Fable.Core.JS.console.log($"{msg}")
+    //Fable.Core.JS.console.log($"{msg}")
     match msg with
     | Init d ->
         { model with Doodle = d; IsEdited = false }, Cmd.none
     | Error x -> model, Cmd.none
     | Saved d ->
         let _cacheId = model.Doodle._id
-        Fable.Core.JS.console.log($"ID after save is {d._id}")
+        //Fable.Core.JS.console.log($"ID after save is {d._id}")
         { model with Doodle = d; IsEdited = false }, Cmd.ofMsg (ClearLocal _cacheId)
     | Discard ->
         let _cacheId = model.Doodle._id
