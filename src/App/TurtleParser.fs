@@ -428,7 +428,7 @@ and parseStringCommand keyword =
 
 and parseCommand =
     [
-        ((parseNumericCommand "if") .>>. parseBlock .>>. (optional (parseKeyword "else" ..>. parseBlock)))
+        ((parseNumericCommand "if") .>>. parseBlock .>>. (optional (eatSpaceTabEol ..>. parseKeyword "else" ..>. parseBlock)))
             |> map (fun (((_,n),cmd),elseCmd) -> TIf (n,cmd,elseCmd) )
         ((parseNumericCommand "repeat") .>>. parseBlock)
             |> map (fun ((_,n),cmd) -> TRepeat (n,cmd) )
@@ -575,25 +575,7 @@ and evalCmd (context : Context) cmd =
             |> optionalDrawCommand// Build a Drawing from a parse tree, evaluating Exprs
 
 let evalProgramWithVars (vars : Map<string,Val>) program =
-
     let mutable context = { Vars = vars }
-(*
-    let rec evalCmds cmds =
-        cmds |> List.fold (fun list cmd -> list @ [evalCmd cmd]) []
-    and evalCmd cmd =
-        match cmd with
-        | TBlock block -> Sub (evalCmds block)
-        | TRepeat (e,block) ->
-            let n = (eval context e) |> expectFloat
-            ListHelpers.loop [1..(int n)] (fun _ -> evalCmds block)
-        | TLet (id,e) ->
-            context <- { context with Vars = context.Vars.Add(id,eval context e) }
-            Sub []
-        | TCall (name,args) ->
-            //_log($"TCall {name}")
-            evalFunc context name args
-                |> optionalDrawCommand
-*)
     evalCmds context program
 
 let logVal (a : Val) = _log($"{a}")
@@ -607,6 +589,9 @@ type BuiltIn =
 
     static member Of ( f : string -> unit ) =
         Func (fun v -> v |> expectString |> f; Unit)
+
+    static member Of ( f : float -> unit ) =
+        Func (fun v -> v |> expectFloat |> f; Unit)
 
     static member Of ( f : Val -> unit ) =
         Func (fun v -> v |> f; Unit)
@@ -638,11 +623,11 @@ let hue (n : float) =
 let normalize (n : float) (min : float)  (max : float) =
     (n - min) / (max - min)
 
-let normalize1000 (n : float) = normalize n 0.0 1000.0
+//let normalize1000 (n : float) = normalize n 0.0 1000.0
 
-let evalProgram program =
-    let vars : Map<string,Val> =
-        Map.empty
+let evalProgram (vars : Map<string,Val>) program =
+    let vars' : Map<string,Val> =
+        vars
             .Add( "t", (double(DateTime.Now.Ticks) / double(10_000_000)) |> Float)
 
             .Add( "truncate", BuiltIn.Of(fun (t:float) -> Math.Truncate t))
@@ -672,25 +657,16 @@ let evalProgram program =
 
             .Add( "log", BuiltIn.Of(logVal))
 
-    evalProgramWithVars vars program
-    // try
-    //     let drawing = evalProgramWithVars vars program
-    //     //for c in (drawing |> Array.ofList) do
-    //     //    Fable.Core.JS.console.dir($"{c}")
-    //     drawing
-    // with
-    // | x ->
-    //     Fable.Core.JS.console.error(x.Message)
-    //     []
+    evalProgramWithVars vars' program
 
-let makeLazy x = fun () -> x
+//let makeLazy x = fun () -> x
 
-let generate input =
+let generate input vars =
     parse input
-        |> ParseResult.map evalProgram
+        |> ParseResult.map (evalProgram vars)
 
 // Parse a user drawing into a LazyDrawing
 let generateWithPenColor input color =
-    generate input
+    generate input Map.empty
         |> ParseResult.map (fun d -> (PenColor color |> Turtle) :: d)
 

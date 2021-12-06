@@ -423,35 +423,83 @@ let resize (ctx : CanvasRenderingContext2D) =
     ctx.canvas.width <- ctx.canvas.offsetWidth
     ctx.canvas.height <- ctx.canvas.offsetHeight
 
-let runDrawing (ctx : CanvasRenderingContext2D) drawing =
+open Fable.Core.JsInterop
+
+[<AbstractClass>]
+type DOMPoint =
+    [<Emit("new DOMPointReadOnly($0,$1)")>]
+    static member Create( x: float, y: float ) : DOMPoint = jsNative
+
+    [<Emit("$0.x")>]
+    abstract member x : float
+    [<Emit("$0.y")>]
+    abstract member y : float
+
+type DOMMatrix =
+    abstract member transformPoint: (DOMPoint -> DOMPoint)
+    abstract member inverse: unit -> DOMMatrix
+
+let initContext (ctx : CanvasRenderingContext2D) =
     let w = ctx.canvas.clientWidth
     let h = ctx.canvas.clientHeight
-    ctx.canvas.width <- w
-    ctx.canvas.height <- h
-    ctx.translate(w/2.0,h/2.0)
-    ctx.scale(w / 1000.0, h / 1000.0)
-    ctx.lineJoin <- "round"
+
+    if ctx.canvas.width <> w || ctx.canvas.height <> h then
+        ctx.canvas.width <- w
+        ctx.canvas.height <- h
+        ctx.translate(w/2.0,h/2.0)
+        ctx.scale(w / 1000.0, h / 1000.0)
+        ctx.lineJoin <- "round"
+
+    ()
+
+let runDrawing (ctx : CanvasRenderingContext2D) drawing =
+    initContext ctx
+    ctx.save()
     drawing |> (ctx |> runCommands (makeTurtle()))
+    ctx.restore()
 
 #if USE_SUTIL
 
-let DrawingCanvas (props : seq<SutilElement>) (drawing : System.IObservable<Drawing>) =
+type DrawingCanvasOptions = {
+    Drawing : System.IObservable<Drawing>
+    OnMouseMove : ((float * float) -> unit) option
+}
+
+let DrawingCanvas (props : seq<SutilElement>) (options : DrawingCanvasOptions) =
 
     let mutable subscription : IDisposable = Unchecked.defaultof<_>
 
     let cleanup() = subscription.Dispose()
+
+    let onMouseMove callback (e : MouseEvent) =
+        let ce = e.target :?> HTMLCanvasElement
+        let ctx = ce.getContext_2d ()
+
+        initContext ctx
+
+        let r = ce.getBoundingClientRect()
+
+        let mx = e.x - r.left
+        let my = e.y - r.top
+
+        let matrix : DOMMatrix = ctx?getTransform()
+        let pt = matrix.inverse().transformPoint( DOMPoint.Create(mx, my) )
+        callback(pt.x,pt.y)
 
     let render (e : HTMLElement) =
         let ce = e :?> HTMLCanvasElement
 
         let ctx = ce.getContext_2d ()
 
-        rafu (fun () -> subscription <- drawing.Subscribe( runDrawing ctx ))
+        rafu (fun () -> subscription <- options.Drawing.Subscribe( runDrawing ctx ))
 
     Html.canvas [
         unsubscribeOnUnmount [cleanup]
         Sutil.DOM.host render
         yield! props
+        match options.OnMouseMove with
+        | None -> fragment []
+        | Some f -> Ev.onMouseMove (fun e -> onMouseMove f e)
     ]
 
 #endif

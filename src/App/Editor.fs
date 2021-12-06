@@ -80,6 +80,7 @@ type Model = {
     Doodle : Types.Schema.Doodle
     TickCount : int
     IsEdited : bool
+    Mouse: float * float
 }
 
 type Message =
@@ -94,6 +95,7 @@ type Message =
     | ClearLocal of string
     | Saved of Schema.Doodle
     | Error of Exception
+    | Mouse of (float*float)
 
 let drawMessage msg color = drawing {
     save
@@ -107,20 +109,26 @@ let drawMessage msg color = drawing {
     restore
 }
 
-let drawTurtle (source :string) =
+let drawTurtle (source :string) ((mx,my) : (float*float)) =
     let input = source.Trim()
     match input with
     | "" -> drawMessage "Create your own drawing, or load an example to get started" "black"
     | _ ->
         try
-            match (TurtleParser.generate input) with
+            let vars =
+                Map.empty
+                    .Add("mx", TurtleParser.Float mx)
+                    .Add("my", TurtleParser.Float my)
+                    ;
+
+            match (TurtleParser.generate input vars) with
             // Error messages from crude parser are currently useless
             | TurtleParser.Parser.ParseResult.Error msg -> drawMessage $"Oops! Not a turtle: {msg}" "orange"
             | TurtleParser.Parser.ParseResult.Success d -> fun() -> d
         with
         | x -> drawMessage $"Oops! Not a turtle: {x.Message}" "orange"
 
-let turtleFromModel model = (drawTurtle model.Doodle.source)()
+let turtleFromModel model = (drawTurtle model.Doodle.source model.Mouse)()
 
 let init (doodle : Schema.Doodle) =
     //Fable.Core.JS.console.log("ID=" + doodle._id)
@@ -139,12 +147,14 @@ let init (doodle : Schema.Doodle) =
         TickCount = 0
         IsEdited = edited'
         Doodle = doodle'
+        Mouse = (0.0,0.0)
     },
     [ fun d -> Fable.Core.JS.setInterval (fun _ -> d Tick) 40 |> ignore ]
 
 let update (server : Server) (session:DoodleSession option) msg (model : Model)=
     //Fable.Core.JS.console.log($"{msg}")
     match msg with
+    | Mouse (x,y) -> { model with Mouse = (x,y) }, Cmd.none
     | Init d ->
         { model with Doodle = d; IsEdited = false }, Cmd.none
     | Error x -> model, Cmd.none
@@ -223,7 +233,7 @@ let style = [
 
 ]
 
-let turtleView turtle =
+let turtleView (dispatch : (float*float) -> unit) turtle =
     Html.div [
         Attr.className "turtle-view"
         Attr.style [
@@ -239,10 +249,15 @@ let turtleView turtle =
                 Css.borderColor "#cccdcc"
                 Css.borderRadius (px 10)
             ]
-        ] turtle
+        ] {
+            Drawing = turtle
+            OnMouseMove = Some dispatch }
     ]
 
 let _view readonly model dispatch =
+    let mutable mx = 0.0
+    let mutable my = 0.0
+
     UI.flexRow [
 
         Attr.style [
@@ -254,7 +269,7 @@ let _view readonly model dispatch =
         UI.flexColumn [
             Attr.className "turtle-details"
 
-            model |> Store.map turtleFromModel |> turtleView
+            model |> Store.map turtleFromModel |> (turtleView (Mouse>>dispatch))
 
             UI.flexRow [
                 Html.label [ text "Name:" ]
@@ -277,11 +292,9 @@ let _view readonly model dispatch =
                 UI.flexRow [
                     Attr.className "buttons"
                     Html.button [
-                        //Bind.attr("disabled", model |> Store.map (fun m -> m.IsEdited |> not))
                         Bind.el(model |> Store.map (fun m -> m.IsEdited),
                             function true -> text "Save *" | false -> text "Save"
                         )
-                        //text "Save"
                         Ev.onClick (fun _ -> dispatch Save)
                     ]
                     Bind.visibility (model |> Store.map (fun m -> m.IsEdited)) <|
