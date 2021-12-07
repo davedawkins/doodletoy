@@ -3,32 +3,53 @@
 ## Outline
 
 - Introduction
--- Deciding on a topic
--- DoodleToy
+  - Deciding on a topic
+  - DoodleToy
 
 - DoodleToy 
--- What it is
--- How it's built and hosted
+  - What it is
+  - How it's built and hosted
 
 - Using Appwrite in Fable
--- Code examples
--- Bindings
--- Package
+  - Code examples
+  - Bindings
+  - Package
 
-- Doodle Language Features
--- 
+- Doodle Language
+  - Parser combinators
+  - Lambdas
+  - Variables
+  - Expressions
+  - Control
+  - Animation
+  - Mouse Input
 
 - Using Sutil
--- Stores, bindings, CSS
+  - Stores, bindings, CSS
 
 
 ## Introduction
 
 I did a scary thing and signed up for 2021's Advent of F# without knowing exactly what it was, or what I'd produce. I'd been looking at things like Firebase, and then discovered Appwrite. I realized this would serve as a fallback topic until I thought of something much cooler, like virtual reality or monad lasers. It turns out Appwrite is pretty cool, so I built https://doodletoy.net as both a broad learning exercise and my advent entry.
 
-- F# / Fable
-- Sutil (F# web framework)
+Here's a list of stuff I got to work on with this project:
+
 - Appwrite
+- Docker (installing Appwrite on Linode server)
+- Converting TS into Fable (and making contribution to https://fable.io/ts2fable)
+- Parser combinators
+- Language design
+- Canvas2D
+- CSS styling top-to-bottom (no framework)
+- Sutil (F# web framework)
+
+
+## DoodleToy
+
+Having decided on Appwrite, I needed a more fully defined project. I decided to make use of some work I did about a year ago with turtle graphics (links), and turn it into the turtle equivalent of https://shadertoy.net. I had this idea that everyone who read the article could go and create their own doodle. This would require me to store documents, have user accounts, etc; all things that would be a good test of Appwrite.
+
+DoodleToy itself is an editor for doodles, which are drawings made using a custom turtle graphics language (based on my previous work, and heavily extended). You can create your own, and browser other people's doodles. To save doodles, you need to create an account. You can log in with Google, Github, Discord or register directly. 
+
 
 ## Appwrite Server
 
