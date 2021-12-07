@@ -1,6 +1,36 @@
-## Writing Appwrite Apps in F#
+# Writing Appwrite Apps in F#
 
-I did a scary thing and signed up for 2021's Advent of F# without knowing exactly what it was, or what I'd produce. I'd been looking at things like Firebase, and then discovered Appwrite. I realized this would serve as a fallback topic until I thought of something much cooler, like virtual reality  or monad lasers. It turns out Appwrite is pretty cool, so here we are.
+## Outline
+
+- Introduction
+-- Deciding on a topic
+-- DoodleToy
+
+- DoodleToy 
+-- What it is
+-- How it's built and hosted
+
+- Using Appwrite in Fable
+-- Code examples
+-- Bindings
+-- Package
+
+- Doodle Language Features
+-- 
+
+- Using Sutil
+-- Stores, bindings, CSS
+
+
+## Introduction
+
+I did a scary thing and signed up for 2021's Advent of F# without knowing exactly what it was, or what I'd produce. I'd been looking at things like Firebase, and then discovered Appwrite. I realized this would serve as a fallback topic until I thought of something much cooler, like virtual reality or monad lasers. It turns out Appwrite is pretty cool, so I built https://doodletoy.net as both a broad learning exercise and my advent entry.
+
+- F# / Fable
+- Sutil (F# web framework)
+- Appwrite
+
+## Appwrite Server
 
 Appwrite is an OSS alternative to Firebase, which you can host on your own servers.
 
@@ -53,7 +83,7 @@ A little more work is required to tweak the bindings, but ts2fable does a great 
 
 - Talk about the property getter/setter thing
 
-The Web App
+## Appwrite Web Application
 
 I wanted in particular to explore the ability to authorize a user with (say) Github and/or Google, and then interact with other users. I wasn't sure if this would be a game, or some kind of chat, or a combination of both. I knew just those objectives would cover some interesting APIs, in particular authorization, database and subscription to events.
 
@@ -90,6 +120,11 @@ Extended the simple language to handle function calls and to define lambdas
 
 Decided to keep things simple and give appwrite its own server so that we didn't need to map any ports to accomodate the existing sutil.dev website. This would remove one extra factor to consider when debugging OAUTH2 redirect_uri issues at least.
 
+## ts2fable
+
+## Doodle Language
+
+## Parser Combinators
 
 See [Appendix A] for some details
 
