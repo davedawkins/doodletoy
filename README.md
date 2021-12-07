@@ -27,7 +27,6 @@
 - Using Sutil
   - Stores, bindings, CSS
 
-
 ## Introduction
 
 I did a scary thing and signed up for 2021's Advent of F# without knowing exactly what it was, or what I'd produce. I'd been looking at things like Firebase, and then discovered Appwrite. I realized this would serve as a fallback topic until I thought of something much cooler, like virtual reality or monad lasers. It turns out Appwrite is pretty cool, so I built https://doodletoy.net as both a broad learning exercise and my advent entry.
@@ -43,10 +42,9 @@ Here's a list of stuff I got to work on with this project:
 - CSS styling top-to-bottom (no framework)
 - Sutil (F# web framework)
 
-
 ## DoodleToy
 
-Having decided on Appwrite, I needed a more fully defined project. I decided to make use of some work I did about a year ago with turtle graphics (links), and turn it into the turtle equivalent of https://shadertoy.net. I had this idea that everyone who read the article could go and create their own doodle. This would require me to store documents, have user accounts, etc; all things that would be a good test of Appwrite.
+Having decided on Appwrite, I needed a more fully defined project. I decided to make use of some work I did about a year ago with turtle graphics (links), and turn it into the turtle equivalent of https://shadertoy.com. I had this idea that everyone who read the article could go and create their own doodle. This would require me to store documents, have user accounts, etc; all things that would be a good test of Appwrite, and something that connect the visitors.
 
 DoodleToy itself is an editor for doodles, which are drawings made using a custom turtle graphics language (based on my previous work, and heavily extended). You can create your own, and browser other people's doodles. To save doodles, you need to create an account. You can log in with Google, Github, Discord or register directly. 
 
@@ -74,21 +72,7 @@ I have very little experience in deploying web apps to Azure, GCP or AWS. Theref
 
 If you find Appwrite interesting, and you'd like to create a web app with F#, then this article should be interesting for you. This isn't a comparison of appwrite with anything else
 
-What I did
-
-Logged into my existing linode server
-
-Installed Appwrite with a single command:
-
-```bash
-docker run -it --rm \
-    --volume /var/run/docker.sock:/var/run/docker.sock \
-    --volume "$(pwd)"/appwrite:/usr/src/code/appwrite:rw \
-    --entrypoint="install" \
-    appwrite/appwrite:0.11.0
-```
-
-There is a small amount of configuration, but you're up and running very quickly.
+Appwrite server installs with a single command [link]. There is a small amount of configuration, but you're up and running very quickly.
 
 On my development laptop:
 
