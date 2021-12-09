@@ -89,7 +89,7 @@ Appwrite server installs with a single command [link]. There is a small amount o
    
 ```
 
-I already had a Linode instance and I decided to fire up another one to host the server. I probably could host it side-by-side with the app server, but I didn't want to complicate the routing of traffic through port 80/443, and I didn't want to use non-standard ports. The issue (as I see it) is that Appwrite server wants to be on port 80/443 and I see no immediate way to configure it to route traffic for a different host so that the app could be served by a plain Nginx process. 
+I already had a [Linode](https://www.linode.com) instance and I decided to fire up another one to host the server. I probably could host it side-by-side with the app server, but I didn't want to complicate the routing of traffic through port 80/443, and I didn't want to use non-standard ports. The issue (as I see it) is that the Appwrite server wants to be on port 80/443 and I see no immediate way to configure it to route traffic for a different host so that the web app can be served by a plain Nginx process. I plan to see if this can be done.
 
 If you use non-standard ports for Appwrite, you can use your nginx to do the routing, but then I suspect you'll get into problems with OAUTH2 redirection URLs - we use those to allow people to login via Google, Discord, Github etc.
 
@@ -101,6 +101,10 @@ While testing, I'd suggest disabling the rate limits, otherwise you'll be locked
 SLL certificates are provided by [Let's Encrypt](https://letsencrypt.org/), and that's all handled by the Appwrite installation automatically. 
 
 ## Developing the Web Application
+
+The web application is written in F# with Fable, using an Elmish architecture (Model-View-Update), and [Sutil](https://sutil.dev) for the HTML and reactivity.
+
+[Sutil](https://sutil.dev) is another one of my projects, and I wanted to see how well it could handle a real (real-ish) application. It's also good [dog-fooding](https://en.wikipedia.org/wiki/Eating_your_own_dog_food). It has very little documentation (because I am a bad bad developer), but I'm working on it, slowly.  I have to say though that it just seems to work. You need to think in a different way to when you're using React; you need to think in a more binding-oriented fashion. 
 
 On my development laptop:
 
