@@ -54,9 +54,11 @@ The backend for the app is an Appwrite server instance hosted on a [Linode](http
 
 ## About Appwrite
 
-Appwrite is an OSS alternative to Firebase, which you can host on your own servers.
+Appwrite is an OSS alternative to Firebase, which you can host on your own servers. In their [own words](https://appwrite.io/):
 
-These platforms feel like a distillation of the best bits of any cloud platform, with a focus on what you need to create a web (or mobile) app:
+> Appwrite is a self-hosted solution that provides developers with a set of easy-to-use and integrate REST APIs to manage their core backend needs.
+
+Platforms like Firebase and Appwrite are a distillation of their big-brother cloud counterparts into simpler versions of:
 
 - Authentication
 - Session management
@@ -70,13 +72,11 @@ Appwrite is particularly interesting for a couple of reasons:
 - it's self-hosting. If you're already paying for a server, you can install it there
 - the TypeScript API is held in a single file, simplifying the generation of the F# API
 
-Confessions:
-I have very little experience in deploying web apps to Azure, GCP or AWS. Therefore I can't compare my experience with Appwrite to those platforms, or even to Firebase.
+I can't claim that this is easier than just using Azure / AWS / GCP etc - I don't have enough experience. I do know that the scope of Appwrite (and probably Firebase) feels like it can be learned from end to end and understood. I'm sure it's a compromise on the vast functionality available from cloud platforms in order to make it easier to get basic projects up and running.
 
 ## Appwrite Server
 
 Appwrite server installs with a single command [link]. There is a small amount of configuration, but you're up and running very quickly. 
-
 
 ```
    +-----------------------+      +--------------------------+  
@@ -95,6 +95,12 @@ If you use non-standard ports for Appwrite, you can use your nginx to do the rou
 
 Once installed, you can then log into the Appwrite console, and configure your projects. The Appwrite instance on solochimp has a project
 named "doodletoy", and within this project are defined the documents, users, authentication methods and web platforms.
+
+While testing, I'd suggest disabling the rate limits, otherwise you'll be locked out from testing your login code after a few attempts. It's a neat feature, and I need to re-enable it for doodletoy!
+
+SLL certificates are provided by [Let's Encrypt](https://letsencrypt.org/), and that's all handled by the Appwrite installation automatically. 
+
+## Developing the Web Application
 
 On my development laptop:
 
