@@ -48,9 +48,9 @@ Having decided on Appwrite, I needed a more fully defined project. I decided to 
 
 DoodleToy itself is an editor for generative art programs written in a custom turtle graphics language (based on my previous work, and heavily extended). You can create your own, and browser other people's doodles. To save doodles, you need to create an account. You can log in with Google, Github, Discord or register directly. 
 
-The app is served from https://doodletoy.net, and is written in F# using [Fable](https://fable.io), [Sutil](https://sutil.dev) and the Appwrite SDK. I used ts2fable to create the F# bindings, and then hand-modified them. My intention is to release the bindings as nuget package Fable.Appwrite. While working on the bindings, I was able to contribute back some enhancements to ts2fable which you can see as the new option checkboxes on the [website](https://fable.io/ts2fable).
+The app is served from https://doodletoy.net, and is written in F# using [Fable](https://fable.io), [Sutil](https://sutil.dev) and the [Appwrite](https://appwrite.io) SDK. I used [ts2fable](https://fable.io/ts2fable) to create the F# bindings, and then hand-modified them. My intention is to release the bindings as nuget package Fable.Appwrite. While working on the bindings, I was able to contribute back some enhancements to ts2fable which you can see as the new option checkboxes on the [website](https://fable.io/ts2fable).
 
-The backend for the app is an Appwrite server instance hosted on a Linode server. I am very impressed with how easy it was to get this up and running. I had a few teething problems with setting up email and a few other things, but searching github, Google and the Appwrite Discord server solved everything. They're a very helpful bunch over on Discord.
+The backend for the app is an Appwrite server instance hosted on a [Linode](https://www.linode.com) server. I am very impressed with how easy it was to get this up and running. I had a few teething problems with setting up email and a few other things, but searching github, Google and the Appwrite Discord server solved everything. They're a very helpful bunch over on Discord.
 
 ## Appwrite Server
 
