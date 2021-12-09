@@ -337,6 +337,9 @@ type DoodleSession(server : Server, user : User) =
                 {| message = message; user = user.name; ts = System.DateTime.Now.Ticks |}
             ))
 
+    member this.SaveAsNew( doc : Types.Schema.Doodle ) : JS.Promise<Schema.Doodle> =
+        this.Save( { doc with ``$id`` = jsUndefined :?> string } )
+
     member _.Save( doc : Types.Schema.Doodle ) : JS.Promise<Schema.Doodle> =
         let dateTimeNow = Math.Truncate(double(DateTime.UtcNow.Ticks) / double(TimeSpan.TicksPerSecond))
         let isUndefined x = (x :> obj) = (None :> obj)

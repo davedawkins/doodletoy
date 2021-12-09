@@ -2,12 +2,9 @@ module TurtleParser
 
 open System
 open Fable.DrawingCanvas
-open Browser.Dom
-open System.Collections.Generic
-open Fable.DrawingCanvas.Builder
 
 
-let _log (s : string) = Fable.Core.JS.console.log(s)
+let _log (s : string) = () //Fable.Core.JS.console.log(s)
 
 module Parser =
 
@@ -257,6 +254,8 @@ module Parser =
         Parser inner
 
 open Parser
+open Browser.Types
+open Fable.Core
 
 let parseSingle keyword turtleCommand =
     (parseKeyword keyword) |> map (fun _ -> turtleCommand)
@@ -282,6 +281,15 @@ let eatComments =
 let parseSemi = (parseChar ((=) ';') "semicolon")
 let parseDelim = eatSpaceTab ..>. (discard parseEnd <|> discard parseEol <|> discard parseComment)
 
+type TurtleState = {
+    mutable IsPenDown : bool
+    mutable LineCount : int
+}
+
+let makeTurtle() =
+    { IsPenDown = false; LineCount = 0 }
+
+
 type BinOp =
     | Eq
     | Ne
@@ -302,6 +310,7 @@ type Expr =
     | Id of string * Expr list
     | Bin of (BinOp*Expr*Expr)
     | Cmd of TCommand
+
 and TCommand =
     | TCall of (string * Expr list)
     | TBlock of TCommand list
@@ -310,32 +319,39 @@ and TCommand =
     | TLet of (string*Expr)
 
 type Val =
-    | Draw of DrawCommand
-    | Func of (Val -> Val)
+    //| Draw of DrawCommand
+    | Func of (Context -> Val -> Val)
+    | Proc of (Context -> unit)
     | Float of float
     | String of string
     | Unit
+and Context = {
+    Id : int
+    mutable Vars : Map<string,Val>
+    Canvas : CanvasRenderingContext2D
+    State : TurtleState
+}
+
+let expectFunc (tval : Val) =
+    tval |> function Func f -> f|_ -> failwith $"Not a function: {tval}"
 
 let expectFloat (tval : Val) =
-    tval |> function Float f -> f|_ -> failwith "Not a float"
+    tval |> function Float f -> f|_ -> failwith $"Not a float: {tval}"
 
 let expectUnit (tval : Val) =
-    tval |> function Unit -> ()|_ -> failwith "Not a float"
+    tval |> function Unit -> ()|_ -> failwith $"Not a unit: {tval}"
 
 let expectString (tval : Val) =
-    tval |> function String s -> s|_ -> failwith "Not a string"
+    tval |> function String s -> s|_ -> failwith $"Not a string: {tval}"
 
-let optionalDrawCommand (tval : Val) =
+let rec optionalDrawCommandImmediate (context : Context) (tval : Val) : unit =
     tval
     |> function
-    | Draw cmd -> cmd
+    | Proc p -> p context
+    //| Draw cmd -> runDrawCommand context cmd
     | Func f -> failwith $"Not enough arguments"
-    | Unit -> Sub []
+    | Unit -> ()
     | _ -> failwith "Function has a result but is unused"
-
-type Context = {
-    mutable Vars : Map<string,Val>
-}
 
 let parseNum = eatSpaceTab ..>. parseNumber |> map Num
 let parseStr = eatSpaceTab ..>. parseString |> map Str
@@ -496,14 +512,17 @@ let parse input =
             Error (sprintf "Syntax error at: %s" remainder)
 
 let rec eval context (expr : Expr) : Val =
+    //Fable.Core.JS.console.log($"[{context.Id}]: eval")
+
     let valOf e =
         eval context e |> expectFloat
 
     let ofBool b = if b then 1.0 else 0.0
     match expr with
     | Lambda (argName,expr) ->
-        Func (fun argVal ->
-            let localC = { Vars = context.Vars.Add(argName,argVal) }
+        Func (fun fcontext argVal ->
+            let localC = { fcontext with Id = fcontext.Id + 1; Vars = context.Vars.Add(argName,argVal) }
+            //let keys = localC.Vars |> Map.toSeq |> Seq.map fst |> String.concat ", "
             eval localC expr
         )
     | Bin (Add,a,b) -> (valOf a) + (valOf b) |> Float
@@ -527,21 +546,22 @@ let rec eval context (expr : Expr) : Val =
             Fable.Core.JS.console.error($"{id}: {x.Message}")
             0.0 |> Float
     | Cmd c ->
-        evalCmd context c |> Draw
+        evalCmdImmediate context c ; Unit
 
 and evalLambda context maybeLambda (args : Expr list)  =
-    //Fable.Core.JS.console.log($"callf {fe} {args0}")
+    //Fable.Core.JS.console.log($"callf {maybeLambda} {args}")
     match maybeLambda, args with
     //| Func f, [] ->
     //    f Unit
     | Func f, [x] ->
-        f (eval (cloneContext context) x)
+        (f context) (eval context x)
     | Func f, x :: xs ->
-        let partialResult = f (eval context x)
+        let partialResult = (f context) (eval context x)
         evalLambda context partialResult xs
-    | immediate, [] -> immediate
+    | immediate, [] ->
+        immediate
     | f, _ ->
-        failwith $"Not a function: {f} args = {args |> Array.ofList}"
+        failwith $"Not a function: {f}"
 
 and evalFunc (context : Context) name args =
     if (not (context.Vars.ContainsKey name)) then
@@ -549,83 +569,145 @@ and evalFunc (context : Context) name args =
     let f = context.Vars.[name]
     evalLambda context f args
 
-and evalCmds (context : Context) cmds =
-    cmds |> List.fold (fun list cmd -> list @ [evalCmd context cmd]) []
+and evalCmdsImmediate (context : Context) cmds =
+    cmds |> List.iter (evalCmdImmediate context)
 
-and evalCmd (context : Context) cmd =
+and evalCmdImmediate (context : Context) cmd : unit=
     match cmd with
-    | TBlock block -> Sub (evalCmds (cloneContext context) block)
+    | TBlock block -> evalCmdsImmediate (cloneContext context) block
     | TIf (e,block,elseBlockOpt) ->
         let n = (eval context e) |> expectFloat
         if n <> 0.0 then
-            Sub (evalCmds (cloneContext context) block)
+            evalCmdsImmediate (cloneContext context) block
         else
             match elseBlockOpt with
-            | None -> Sub []
-            | Some elseBlock -> Sub (evalCmds (cloneContext context) elseBlock)
+            | None -> ()
+            | Some elseBlock -> evalCmdsImmediate (cloneContext context) elseBlock
     | TRepeat (e,block) ->
         let n = (eval context e) |> expectFloat
-        ListHelpers.loop [1..(int n)] (fun _ -> evalCmds context block)
+        [1..(int n)] |> List.iter (fun _ -> evalCmdsImmediate context block)
     | TLet (id,e) ->
         context.Vars <- context.Vars.Add(id,eval context e)
-        Sub []
     | TCall (name,args) ->
-        //_log($"TCall {name}")
+        _log($"TCall {name} {args}")
         evalFunc (cloneContext context) name args
-            |> optionalDrawCommand// Build a Drawing from a parse tree, evaluating Exprs
+            |> optionalDrawCommandImmediate context// Build a Drawing from a parse tree, evaluating Exprs
 
-let evalProgramWithVars (vars : Map<string,Val>) program =
-    let mutable context = { Vars = vars }
-    evalCmds context program
+let evalProgramWithVarsImmediate (vars : Map<string,Val>) canvas program =
+    let mutable context = { Id = 1; Vars = vars; Canvas = canvas; State = makeTurtle() }
+    evalCmdsImmediate context program
+    if (context.State.LineCount > 0) then
+        canvas.stroke()
 
 let logVal (a : Val) = _log($"{a}")
 
 type BuiltIn =
     static member Of ( f : float -> float ) =
-        Func (Float<<f<<expectFloat)
+        Func (fun ctx -> (Float<<f<<expectFloat))
+
+    //static member Of ( f : float -> float -> float ) =
+    //    Func (fun ctx val0 -> val0 |> expectFunc |> fun _ val1 -> val1 |> expectFloat |> (f val0 val1) |> Float)
 
     static member Of ( f : unit -> unit ) =
-        Func (fun v -> v |> expectUnit |> f; Unit)
+        Func (fun c v -> v |> expectUnit |> f; Unit)
 
     static member Of ( f : string -> unit ) =
-        Func (fun v -> v |> expectString |> f; Unit)
+        Func (fun c v -> v |> expectString |> f; Unit)
 
     static member Of ( f : float -> unit ) =
-        Func (fun v -> v |> expectFloat |> f; Unit)
+        Func (fun c v -> v |> expectFloat |> f; Unit)
 
     static member Of ( f : Val -> unit ) =
-        Func (fun v -> v |> f; Unit)
+        Func (fun c v -> v |> f; Unit)
 
-    static member Of ( t : TurtleCommand ) =
-        t |> Turtle |> Draw
+    static member Of ( f : Context -> unit ) =
+        Proc f
 
-    static member Of ( f : float -> TurtleCommand ) =
-        Func (Draw<<Turtle<<f<<expectFloat)
+    static member Of ( f : Context -> float -> unit ) =
+        Func (fun c v -> v |> expectFloat |> (f c); Unit)
 
-    static member Of ( f : string -> TurtleCommand ) =
-        Func (Draw<<Turtle<<f<<expectString)
-
-    static member Of ( f : string -> DrawCommand ) =
-        Func (Draw<<f<<expectString)
-
-    static member Of ( f : float -> DrawCommand ) =
-        Func (Draw<<f<<expectFloat)
-
-let clear (fillColor:string) =
-    Sub [
-        Canvas (FillColor fillColor)
-        Canvas (FillRect (-500., -500., 1000., 1000.))
-    ]
-
-let hue (n : float) =
-    ColorShift.hsvToHex (ColorShift.bound n,1.0,1.0) |> PenColor
+    static member Of ( f : Context -> string -> unit ) =
+        Func (fun c v -> v |> expectString |> (f c); Unit)
 
 let normalize (n : float) (min : float)  (max : float) =
     (n - min) / (max - min)
 
-//let normalize1000 (n : float) = normalize n 0.0 1000.0
+module TurtleCmd =
+    let stroke context =
+        let turtle = context.State
+        if (turtle.LineCount > 0) then
+            context.Canvas.stroke()
+            turtle.LineCount <- 0
 
-let evalProgram (vars : Map<string,Val>) program =
+    let turn context a =
+        context.Canvas.rotate( a * Math.PI / 180.0 )
+
+    let forward context n =
+        let turtle = context.State
+        let ctx = context.Canvas
+
+        if (turtle.LineCount = 0 && turtle.IsPenDown) then
+            ctx.beginPath()
+            ctx.moveTo(0.0, 0.0)
+
+        if (turtle.IsPenDown) then ctx.lineTo(n,0.0) else ctx.moveTo(n,0.0)
+        ctx.translate(n,0.0)
+
+        if (turtle.IsPenDown) then
+            turtle.LineCount <- turtle.LineCount + 1
+
+    let push context =
+        context.Canvas.save()
+
+    let pop context =
+        stroke context
+        context.Canvas.restore()
+
+    let penUp context =
+        context.State.IsPenDown <- false
+
+    let penDown context =
+        context.State.IsPenDown <- true
+
+    let penColor context (c : string) =
+        stroke context
+        context.Canvas.strokeStyle <- U3.Case1 c
+
+    let rotateHue context x =
+        stroke context
+        context.Canvas.strokeStyle <- rotateHueFromStyle context.Canvas.strokeStyle x
+
+    let increaseWidth context x =
+        stroke context
+        context.Canvas.lineWidth <- context.Canvas.lineWidth + x
+
+    let increaseAlpha context x =
+        stroke context
+        context.Canvas.globalAlpha <- System.Math.Max(0., System.Math.Min(context.Canvas.globalAlpha+x, 1.0))
+
+    let increaseStrokeRed context x =
+        context.Canvas.strokeStyle <- increaseRedFromStyle context.Canvas.strokeStyle x
+
+    let increaseStrokeGreen context x =
+        context.Canvas.strokeStyle <- increaseGreenFromStyle context.Canvas.strokeStyle x
+
+    let increaseStrokeBlue context x =
+        context.Canvas.strokeStyle <- increaseBlueFromStyle context.Canvas.strokeStyle x
+
+    let penWidth context w =
+        if (context.Canvas.lineWidth <> w) then
+            stroke context
+            context.Canvas.lineWidth <- w
+
+    let clear context (fillColor:string) =
+        context.Canvas.fillStyle <- U3.Case1 fillColor
+        context.Canvas.fillRect (-500., -500., 1000., 1000.)
+
+    let hue context (n : float) =
+        context.Canvas.strokeStyle <-
+            ColorShift.hsvToHex (ColorShift.bound n,1.0,1.0) |> U3.Case1
+
+let initBuiltIns (vars : Map<string,Val>) =
     let vars' : Map<string,Val> =
         vars
             .Add( "t", (double(DateTime.Now.Ticks) / double(10_000_000)) |> Float)
@@ -634,39 +716,38 @@ let evalProgram (vars : Map<string,Val>) program =
             .Add( "frac", BuiltIn.Of(fun (t:float) -> t - Math.Truncate t))
             .Add( "sin", BuiltIn.Of(Math.Sin))
             .Add( "cos", BuiltIn.Of(Math.Cos))
+            .Add( "tan", BuiltIn.Of(Math.Tan))
+            .Add( "asin", BuiltIn.Of(Math.Asin))
+            .Add( "acos", BuiltIn.Of(Math.Acos))
+            .Add( "atan", BuiltIn.Of(Math.Atan))
             .Add( "abs", BuiltIn.Of(fun (n:float) -> float(Math.Abs(n))))
             .Add( "sign", BuiltIn.Of(fun (n:float) -> float(Math.Sign(n))))
             .Add( "round", BuiltIn.Of(fun (n:float) -> Math.Round(n)))
             .Add( "sqrt", BuiltIn.Of(Math.Sqrt))
 
-            .Add( "forward", BuiltIn.Of(Forward))
-            .Add( "turn", BuiltIn.Of(Turn))
-            .Add( "penHue", BuiltIn.Of(hue))
-            .Add( "penColor", BuiltIn.Of(PenColor))
-            .Add( "penWidth", BuiltIn.Of(Canvas<<LineWidth))
-            .Add( "clear", BuiltIn.Of(clear))
-            .Add( "rotateHue", BuiltIn.Of(RotateHue))
-            .Add( "increaseWidth", BuiltIn.Of(IncreaseWidth))
-            .Add( "increaseAlpha", BuiltIn.Of(IncreaseAlpha))
+            .Add( "forward", BuiltIn.Of(TurtleCmd.forward))
+            .Add( "turn", BuiltIn.Of(TurtleCmd.turn))
+            .Add( "penHue", BuiltIn.Of(TurtleCmd.hue))
+            .Add( "penColor", BuiltIn.Of(TurtleCmd.penColor))
+            .Add( "penWidth", BuiltIn.Of(TurtleCmd.penWidth))
+            .Add( "clear", BuiltIn.Of(TurtleCmd.clear))
+            .Add( "rotateHue", BuiltIn.Of(TurtleCmd.rotateHue))
+            .Add( "increaseWidth", BuiltIn.Of(TurtleCmd.increaseWidth))
+            .Add( "increaseAlpha", BuiltIn.Of(TurtleCmd.increaseAlpha))
 
-            .Add( "penDown", BuiltIn.Of(PenDown))
-            .Add( "penUp", BuiltIn.Of(PenUp))
+            .Add( "penDown", BuiltIn.Of(TurtleCmd.penDown))
+            .Add( "penUp", BuiltIn.Of(TurtleCmd.penUp))
 
-            .Add( "push", BuiltIn.Of(Push))
-            .Add( "pop", BuiltIn.Of(Pop))
+            .Add( "push", BuiltIn.Of(TurtleCmd.push))
+            .Add( "pop", BuiltIn.Of(TurtleCmd.pop))
 
             .Add( "log", BuiltIn.Of(logVal))
+    vars'
 
-    evalProgramWithVars vars' program
+let createRedraw (vars : Map<string,Val>) program : DrawFunction = fun ctx ->
+    let vars' = initBuiltIns vars
+    evalProgramWithVarsImmediate vars' ctx program
 
-//let makeLazy x = fun () -> x
-
-let generate input vars =
+let generateRedraw input vars =
     parse input
-        |> ParseResult.map (evalProgram vars)
-
-// Parse a user drawing into a LazyDrawing
-let generateWithPenColor input color =
-    generate input Map.empty
-        |> ParseResult.map (fun d -> (PenColor color |> Turtle) :: d)
-
+        |> ParseResult.map (createRedraw vars)

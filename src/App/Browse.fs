@@ -105,7 +105,7 @@ module DoodleView =
 
     let private viewRecord (server:Server)  (options : Options) dispatch (m : Model) =
         let mutable mousexy : float * float = 0.0,0.0
-        let make() = Editor.drawTurtle m.Doodle.source mousexy ()
+        let make() = Editor.drawTurtle m.Doodle.source mousexy
         let drawingS = Store.make (make())
         let refresh() =
             Store.set drawingS (make())

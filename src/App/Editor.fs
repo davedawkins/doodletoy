@@ -62,11 +62,6 @@ module Storage =
 
     let clear (id : string) : unit =
         setDoodles {| |}
-        // let id' = safeId id
-        // let map = getDoodles()
-        // if isIn id' map then
-        //     delete id' map
-        //     setDoodles(map)
 
     let save (d : Schema.Doodle) =
         let map = {| |}
@@ -81,6 +76,7 @@ type Model = {
     TickCount : int
     IsEdited : bool
     Mouse: float * float
+    AnimationEnabled : bool
 }
 
 type Message =
@@ -91,6 +87,7 @@ type Message =
     | Tick
     | Discard
     | Save
+    | SaveAsNew
     | SaveLocal
     | ClearLocal of string
     | Saved of Schema.Doodle
@@ -109,10 +106,17 @@ let drawMessage msg color = drawing {
     restore
 }
 
+let drawMessageImmediate msg color = fun canvas ->
+    let drawing = drawMessage msg color
+    initContext canvas
+    canvas.save()
+    drawing() |> (canvas |> runCommands)
+    canvas.restore()
+
 let drawTurtle (source :string) ((mx,my) : (float*float)) =
     let input = source.Trim()
     match input with
-    | "" -> drawMessage "Create your own drawing, or load an example to get started" "black"
+    | "" -> drawMessageImmediate "Create your own drawing, or load an example to get started" "black"
     | _ ->
         try
             let vars =
@@ -121,14 +125,14 @@ let drawTurtle (source :string) ((mx,my) : (float*float)) =
                     .Add("my", TurtleParser.Float my)
                     ;
 
-            match (TurtleParser.generate input vars) with
+            match (TurtleParser.generateRedraw input vars) with
             // Error messages from crude parser are currently useless
-            | TurtleParser.Parser.ParseResult.Error msg -> drawMessage $"Oops! Not a turtle: {msg}" "orange"
-            | TurtleParser.Parser.ParseResult.Success d -> fun() -> d
+            | TurtleParser.Parser.ParseResult.Error msg -> drawMessageImmediate $"Oops! Not a turtle: {msg}" "orange"
+            | TurtleParser.Parser.ParseResult.Success d -> d
         with
-        | x -> drawMessage $"Oops! Not a turtle: {x.Message}" "orange"
+        | x -> drawMessageImmediate $"Oops! Not a turtle: {x.Message}" "orange"
 
-let turtleFromModel model = (drawTurtle model.Doodle.source model.Mouse)()
+let turtleFromModel model = (drawTurtle model.Doodle.source model.Mouse)
 
 let init (doodle : Schema.Doodle) =
     //Fable.Core.JS.console.log("ID=" + doodle._id)
@@ -148,7 +152,9 @@ let init (doodle : Schema.Doodle) =
         IsEdited = edited'
         Doodle = doodle'
         Mouse = (0.0,0.0)
+        AnimationEnabled = false
     },
+    //Cmd.none
     [ fun d -> Fable.Core.JS.setInterval (fun _ -> d Tick) 40 |> ignore ]
 
 let update (server : Server) (session:DoodleSession option) msg (model : Model)=
@@ -175,6 +181,11 @@ let update (server : Server) (session:DoodleSession option) msg (model : Model)=
         match session with
         | Some s ->
             model, Cmd.OfPromise.either (s.Save) (model.Doodle) Saved Error
+        | None -> model, Cmd.none
+    | SaveAsNew ->
+        match session with
+        | Some s ->
+            model, Cmd.OfPromise.either (s.SaveAsNew) (model.Doodle) Saved Error
         | None -> model, Cmd.none
     | SetName s ->
         { model with Doodle = { model.Doodle with name = s }; IsEdited = true }, Cmd.ofMsg SaveLocal
@@ -251,6 +262,7 @@ let turtleView (dispatch : (float*float) -> unit) turtle =
             ]
         ] {
             Drawing = turtle
+            //Redraw = ignore
             OnMouseMove = Some dispatch }
     ]
 
@@ -296,6 +308,10 @@ let _view readonly model dispatch =
                             function true -> text "Save *" | false -> text "Save"
                         )
                         Ev.onClick (fun _ -> dispatch Save)
+                    ]
+                    Html.button [
+                        text "Save as New"
+                        Ev.onClick (fun _ -> dispatch SaveAsNew)
                     ]
                     Bind.visibility (model |> Store.map (fun m -> m.IsEdited)) <|
                         Html.button [

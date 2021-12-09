@@ -20,10 +20,6 @@ let LineJoinBevel = "bevel"
 let LineJoinRound = "round"
 let LineJoinMiter = "miter"
 
-type TurtleState = {
-    mutable IsPenDown : bool
-    mutable LineCount : int
-}
 
 //
 // Commands that match the Canvas2D almost one to one. There are a few helper aliases
@@ -77,30 +73,14 @@ type CanvasCommand =
     | FillText of text:string * x:float * y:float * maxw:float option
     | StrokeText of text:string * x:float * y:float * maxw:float option
     | Func of (CanvasRenderingContext2D -> unit)
-//
-// Commands generated from the turtle builder
-//
-type TurtleCommand =
-    | PenUp
-    | PenDown
-    | Push
-    | Pop
-    | PenColor of string
-    | RotateHue of float
-    | IncreaseWidth of float
-    | IncreaseAlpha of float
-    | IncreaseRed of float
-    | IncreaseGreen of float
-    | IncreaseBlue of float
-    | Forward of distance:float
-    | Turn of angle:float
+
 
 //
 // General draw command. These will need translating (compiling, kind of) into Canvas commands
 //
 type DrawCommand =
     | Canvas of CanvasCommand
-    | Turtle of TurtleCommand
+    // | Turtle of TurtleCommand
     | Sub of (DrawCommand list)
 
 module ColorShift =
@@ -228,7 +208,7 @@ let increaseBlueFromStyle style amount =
 //
 // Side-effect time for canvas commands
 //
-let rec private runCommand (turtle : TurtleState) (ctx:CanvasRenderingContext2D) (command : CanvasCommand) =
+let rec runCommand (ctx:CanvasRenderingContext2D) (command : CanvasCommand) =
     match command with
 
     // Helper for resizing
@@ -322,91 +302,19 @@ let rec private runCommand (turtle : TurtleState) (ctx:CanvasRenderingContext2D)
         | Some mw -> ctx.strokeText(text,x,y,mw)
     | Func f -> f ctx
 
-//
-// Turn Turtle commands into CanvasCommands
-//
-let translateTurtle turtle cmd =
-    let strokePathFirst cmd =
-        seq {
-            if (turtle.LineCount > 0) then
-                yield Stroke
-                turtle.LineCount <- 0
-            yield cmd
-        }
-
-    seq {
-        match cmd with
-        | PenUp ->
-            turtle.IsPenDown <- false
-
-        | PenDown ->
-            turtle.IsPenDown <- true
-
-        | Push ->
-            yield Save
-
-        | Pop ->
-            yield! Restore |> strokePathFirst
-
-        | Forward n ->
-            if (turtle.LineCount = 0 && turtle.IsPenDown) then
-                yield LineJoin LineJoinRound
-                yield BeginPath
-                yield MoveTo (0.0, 0.0)
-
-            yield if (turtle.IsPenDown) then LineTo(n,0.0) else MoveTo(n,0.0)
-            yield Translate(n,0.0)
-
-            if (turtle.IsPenDown) then
-                turtle.LineCount <- turtle.LineCount + 1
-
-        | Turn a ->
-            yield Rotate( a * Math.PI / 180.0 )
-
-        | PenColor c ->
-            yield! StrokeColor c |> strokePathFirst
-
-        | RotateHue x ->
-            yield! RotateStrokeHue x |> strokePathFirst
-
-        | IncreaseWidth x ->
-            yield! IncreaseLineWidth x |> strokePathFirst
-
-        | IncreaseAlpha x ->
-            yield! IncreaseGlobalAlpha x |> strokePathFirst
-
-        | IncreaseRed x ->
-            yield! IncreaseStrokeRed x |> strokePathFirst
-
-        | IncreaseGreen x ->
-            yield! IncreaseStrokeGreen x |> strokePathFirst
-
-        | IncreaseBlue x ->
-            yield! IncreaseStrokeBlue x |> strokePathFirst
-
-    }
-
-//
-// Turn a list of DrawCommand into pure CanvasCommands
-//
-let  translate turtle commands =
-    let rec tr turtle commands =
+let translate commands =
+    let rec tr commands =
         seq {
             for cmd in commands do
                 match cmd with
                 | Canvas c -> yield c
-                | Sub cmds -> yield! (tr turtle cmds)
-                | Turtle t -> yield! (translateTurtle turtle t)
+                | Sub cmds -> yield! (tr cmds)
         }
-    seq {
-        yield! tr turtle commands
-        if (turtle.LineCount > 0) then
-            yield Stroke
-    }
+    tr commands
 
-let runCommands turtle ctx commands =
-    for cmd in commands |> translate turtle do
-        runCommand turtle ctx cmd
+let runCommands ctx commands =
+     for cmd in commands |> translate  do
+         runCommand ctx cmd
 
 type Drawing = DrawCommand list
 
@@ -415,9 +323,6 @@ type DrawFunction = CanvasRenderingContext2D -> unit
 type Redraw =
     | Drawing of (unit -> Drawing)
     | DrawFunction of DrawFunction
-
-let makeTurtle() =
-    { IsPenDown = false; LineCount = 0 }
 
 let resize (ctx : CanvasRenderingContext2D) =
     ctx.canvas.width <- ctx.canvas.offsetWidth
@@ -455,13 +360,19 @@ let initContext (ctx : CanvasRenderingContext2D) =
 let runDrawing (ctx : CanvasRenderingContext2D) drawing =
     initContext ctx
     ctx.save()
-    drawing |> (ctx |> runCommands (makeTurtle()))
+    try
+        drawing ctx
+    with
+    | x ->
+        Fable.Core.JS.console.error(x.Message,x)
+    //drawing |> (ctx |> runCommands (makeTurtle()))
     ctx.restore()
 
 #if USE_SUTIL
 
 type DrawingCanvasOptions = {
-    Drawing : System.IObservable<Drawing>
+    Drawing : System.IObservable<DrawFunction>
+    //Redraw : DrawFunction
     OnMouseMove : ((float * float) -> unit) option
 }
 
@@ -491,7 +402,7 @@ let DrawingCanvas (props : seq<SutilElement>) (options : DrawingCanvasOptions) =
 
         let ctx = ce.getContext_2d ()
 
-        rafu (fun () -> subscription <- options.Drawing.Subscribe( runDrawing ctx ))
+        rafu (fun () -> subscription <- options.Drawing.Subscribe( fun d -> runDrawing ctx d))
 
     Html.canvas [
         unsubscribeOnUnmount [cleanup]
@@ -501,49 +412,6 @@ let DrawingCanvas (props : seq<SutilElement>) (options : DrawingCanvasOptions) =
         | None -> fragment []
         | Some f -> Ev.onMouseMove (fun e -> onMouseMove f e)
     ]
-
-#endif
-
-#if USE_REACT
-
-type DrawingCanvasProps =
-    { Props: seq<IHTMLProp>
-      Redraw: Redraw }
-
-type DrawingCanvas(initialProps) as self =
-    inherit Component<DrawingCanvasProps, obj>(initialProps)
-
-    let mutable canvasElement: HTMLCanvasElement option = None
-
-    let setRef (e: Element) =
-        canvasElement <-
-            match e :?> HTMLCanvasElement with
-                | null -> None
-                | ce -> Some ce
-
-    let drawNow () =
-        canvasElement |> Option.map (fun ce ->
-            let ctx = ce.getContext_2d ()
-            match self.props.Redraw with
-            | Drawing d -> runDrawing ctx d
-            | DrawFunction f -> f ctx
-        ) |> ignore
-
-    override this.render() =
-        canvas
-           [
-                Ref setRef
-                yield! this.props.Props
-           ]
-           this.children
-
-    override this.componentDidMount() =
-        drawNow()
-
-    override this.componentDidUpdate(p, s) =
-        drawNow ()
-
-let drawingcanvas props = ofType<DrawingCanvas, _, _> props []
 
 #endif
 
@@ -743,7 +611,6 @@ module Builder =
     let strokepath = DrawCommandBuilder(StrokePath)
     let preserve = DrawCommandBuilder(SaveRestore)
 
-
 module ListHelpers =
     let loop coll fn = coll |> List.collect fn |> Sub
 
@@ -761,85 +628,3 @@ module ListHelpers =
 
     let strokepath (drawing : DrawCommand list) =
         (Canvas BeginPath :: drawing) @ [ Canvas Stroke ]
-
-module Turtle =
-
-    open System
-
-    type TurtleBuilder() =
-        let append xs (x : TurtleCommand) =
-            xs @ [ Turtle x ]
-
-        let appendSub xs (x : DrawCommand list) =
-            //xs @ [ x |> List.filter (fun c -> c <> Canvas BeginPath && c <> Canvas Stroke) |> Sub ]
-            xs @ [ Sub x ] // Could we just append x here?
-
-        // Defers execution of the CE until the Run().
-        member _.Delay(funcToDelay) =
-            let delayed = fun () -> funcToDelay()
-            delayed // return the new function. This will be unwrapped with Run, where we can apply variant
-
-        // Initialises the expression
-        member _.Yield _ : DrawCommand list =
-            []
-
-        // Unwraps the function created by Delay. This allows us to apply the variant wrapping, if needed
-        member _.Run( funcToRun ) : (unit -> DrawCommand list) =
-            fun () ->
-               let drawing = funcToRun()
-               //(Canvas BeginPath :: drawing) @ [ Canvas Stroke ]
-               drawing
-
-        [<CustomOperation "forward">]
-        member _.Forward(state:Drawing, d) = append state <| Forward d
-
-        [<CustomOperation "turn">]
-        member _.Turn(state:Drawing, a) = append state <| Turn a
-
-        [<CustomOperation "penUp">]
-        member _.PenUp(state:Drawing) = append state <| PenUp
-
-        [<CustomOperation "penDown">]
-        member _.PenDown(state:Drawing) = append state <| PenDown
-
-        [<CustomOperation "penColor">]
-        member _.PenColor(state:Drawing, c) = append state <| PenColor c
-
-        [<CustomOperation "rotateHue">]
-        member _.RotateHue(state:Drawing, x) = append state <| RotateHue x
-
-        [<CustomOperation "increaseWidth">]
-        member _.IncreaseWidth(state:Drawing, x) = append state <| IncreaseWidth x
-
-        [<CustomOperation "increaseAlpha">]
-        member _.IncreaseAlpha(state:Drawing, x) = append state <| IncreaseAlpha x
-
-        [<CustomOperation "increaseRed">]
-        member _.IncreaseRed(state:Drawing, x) = append state <| IncreaseRed x
-
-        [<CustomOperation "increaseGreen">]
-        member _.IncreaseGreen(state:Drawing, x) = append state <| IncreaseGreen x
-
-        [<CustomOperation "increaseBlue">]
-        member _.IncreaseBlue(state:Drawing, x) = append state <| IncreaseBlue x
-
-        [<CustomOperation "sub">]
-        member _.Sub(state:Drawing, drawing : unit -> Drawing ) = appendSub state <| drawing()
-
-        [<CustomOperation "repeat">]
-        member _.Repeat<'T>(state:Drawing, col:seq<'T>, f:('T -> (unit ->Drawing)) ) =
-            let mutable result = state
-            for x in col do
-                let d = f x
-                result <- appendSub result (d())
-            result
-
-        [<CustomOperation "ifThen">]
-        member _.IfThen(state:Drawing, cond, succ : unit -> Drawing) : Drawing =
-            if cond then appendSub state (succ()) else state
-
-        [<CustomOperation "ifThenElse">]
-        member _.IfThenElse(state:Drawing, cond, succ : unit -> Drawing, fail : unit -> Drawing) =
-            if cond then (appendSub state (succ())) else (appendSub state (fail()))
-
-    let turtle = TurtleBuilder()
