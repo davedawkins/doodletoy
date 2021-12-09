@@ -46,8 +46,11 @@ Here's a list of stuff I got to work on with this project:
 
 Having decided on Appwrite, I needed a more fully defined project. I decided to make use of some work I did about a year ago with turtle graphics (links), and turn it into the turtle equivalent of https://shadertoy.com. I had this idea that everyone who read the article could go and create their own doodle. This would require me to store documents, have user accounts, etc; all things that would be a good test of Appwrite, and something that connect the visitors.
 
-DoodleToy itself is an editor for doodles, which are drawings made using a custom turtle graphics language (based on my previous work, and heavily extended). You can create your own, and browser other people's doodles. To save doodles, you need to create an account. You can log in with Google, Github, Discord or register directly. 
+DoodleToy itself is an editor for generative art programs written in a custom turtle graphics language (based on my previous work, and heavily extended). You can create your own, and browser other people's doodles. To save doodles, you need to create an account. You can log in with Google, Github, Discord or register directly. 
 
+The app is served from https://doodletoy.net, and is written in F# using Fable, Sutil and the Appwrite SDK. I used ts2fable to create the F# bindings, and then hand-modified them. My intention is to release the bindings as nuget package Fable.Appwrite. 
+
+The backend for the app is an Appwrite server instance hosted on a Linode server. I am very impressed with how easy it was to get this up and running. I had a few teething problems with setting up email and a few other things, but searching github, Google and the Appwrite Discord server solved everything. They're a very helpful bunch over on Discord.
 
 ## Appwrite Server
 
