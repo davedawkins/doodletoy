@@ -52,7 +52,7 @@ The app is served from https://doodletoy.net, and is written in F# using [Fable]
 
 The backend for the app is an Appwrite server instance hosted on a [Linode](https://www.linode.com) server. I am very impressed with how easy it was to get this up and running. I had a few teething problems with setting up email and a few other things, but searching github, Google and the Appwrite Discord server solved everything. They're a very helpful bunch over on Discord.
 
-## Appwrite Server
+## About Appwrite
 
 Appwrite is an OSS alternative to Firebase, which you can host on your own servers.
 
@@ -73,9 +73,28 @@ Appwrite is particularly interesting for a couple of reasons:
 Confessions:
 I have very little experience in deploying web apps to Azure, GCP or AWS. Therefore I can't compare my experience with Appwrite to those platforms, or even to Firebase.
 
-If you find Appwrite interesting, and you'd like to create a web app with F#, then this article should be interesting for you. This isn't a comparison of appwrite with anything else
+## Appwrite Server
 
-Appwrite server installs with a single command [link]. There is a small amount of configuration, but you're up and running very quickly.
+Appwrite server installs with a single command [link]. There is a small amount of configuration, but you're up and running very quickly. 
+
+
+```
+   +-----------------------+      +--------------------------+  
+   | https://doodletoy.net |      | https://solochimp.com    |
+   | Ports: 80 / 443       |      | Ports: 80 / 443          |
+   | Linode instance       |      | Linode instance          |
+   | Serves the web app    |      | Runs the Appwrite server |
+   | using nginx           |      | as a docker container    |
+   +-----------------------+      +--------------------------+
+   
+```
+
+I already had a Linode instance and I decided to fire up another one to host the server. I probably could host it side-by-side with the app server, but I didn't want to complicate the routing of traffic through port 80/443, and I didn't want to use non-standard ports. The issue (as I see it) is that Appwrite server wants to be on port 80/443 and I see no immediate way to configure it to route traffic for a different host so that the app could be served by a plain Nginx process. 
+
+If you use non-standard ports for Appwrite, you can use your nginx to do the routing, but then I suspect you'll get into problems with OAUTH2 redirection URLs - we use those to allow people to login via Google, Discord, Github etc.
+
+Once installed, you can then log into the Appwrite console, and configure your projects. The Appwrite instance on solochimp has a project
+named "doodletoy", and within this project are defined the documents, users, authentication methods and web platforms.
 
 On my development laptop:
 
