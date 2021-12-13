@@ -473,26 +473,28 @@ Casual visitors may edit a doodle and then decide they want to save it, and so d
 
 ![image](https://user-images.githubusercontent.com/285421/145900164-1752b249-c473-4027-8f05-2e55ed07dc58.png)
 
-- Styling
+## Doodle Language
 
-Decided I could style the whole thing myself - Kevin Powell showed me many cool tips via his YT channel. No bulma.
-Using a reset
+This has nothing to do with Appwrite! Doodles are what I used as a vehicle to study and learn Appwrite for this article, and for my own education. I forked a copy of `Fable.React.DrawingCanvas` from last year, which is one of my first forays into Fable. It included a simple turtle language, which I've brought into DoodleToy and heavily extended.
 
-See [Appendix A] for some details
+The language's purpose is to implement turtle graphics, and for this article, I had this idea that everyone who read the article could contribute their own, and we'd have this marvellous and motley collection of doodles as a visitor's gallery.  I knew there'd be some very clever people visiting who'd try clever stuff (cos you is all functional programmmers innit), and so I invested some time into adding enough language features to allow things like fractals to be drawn, and to allow a modicum of user input.
 
-See [Appendix B] for references
+The language parser is implemented with parser combinators, and I am endlessly fascinated with these things. I grew up with yacc and lex, and then eventually learned to write recursive descent parsers (in a progression of C -> C++ -> C#). RD parsing really demystified everything that yacc had done for me previously (though I believe yacc implements a different type of parser - LALR).
 
-## Appendix A - Changes to generated output from ts2fable
+Because I never make things easy for myself, and because I enjoy learning from the ground up where I can, I implemented my own parser combinator library. I used Scott Wlaschin's article for reference and to re-inforce some key concepts. 
+
+I was able to add lambda functions, if/then conditionals and comments to the language. Functions are made by assigning a lambda to a variable. Multiple arguments are just curried.
+
+```fs
+let add2 := fun n -> n + 2
+```
+
+```fs
+let mul := fun x -> fun y -> x * y
+```
 
 
-- Change returned type to User and Session for appropriate calls
-- Removed optional arguments from createDocument
-- Convert "ResizeArray<string>" to "string array"
-- Change definition of Error from System.Exception to empty interface
-- createOauth2Session returns unit
-- Change generated API from property get/set of function to overloaded function
-
-## Appendix B - References
+## References
 
 https://linode.com
 
