@@ -248,6 +248,93 @@ The definition of `doodles` looks like this:
 
 Note that I gave `Source` a type of `markdown`, instead `text`. If you edit a record by hand in the Appwrite console, the text input element seems to strip off the newlines, even if you didn't change that field. The editor used for `markdown` fields looks to be much more capable of handling newlines. It doesn't seem to affect the way the data is sent back and forth - I treat it as a `string`. Now that the UI is more developed, I haven't needed to edit a record in the Appwrite console, so this is a minor issue. 
 
+You can also see the schema as a JSON document (abbreviated):
+
+```json
+{
+    "name": "doodles",
+    "dateCreated": 1637603616,
+    "dateUpdated": 1637603933,
+    "rules": [
+        {
+            "$id": "619bd9edaf49c",
+            "$collection": "rules",
+            "type": "text",
+            "key": "name",
+            "label": "Name",
+            "default": "",
+            "array": false,
+            "required": true,
+            "list": []
+        },
+        {
+            "$id": "619bd9edb1447",
+            "$collection": "rules",
+            "type": "markdown",
+            "key": "description",
+            "label": "Description",
+            "default": "",
+            "array": false,
+            "required": false,
+            "list": []
+        }
+}
+```
+
+Saving a doodle works like this:
+
+```
+
+    // class Server
+    member _.UpdateCreate( d : Doodle ) : JS.Promise<Doodle> =
+        promise {
+            let! saved =
+                if String.IsNullOrEmpty(d._id) then
+                    sdk.database.createDocument(doodlesCollectionID, d, [| "*" |] ) : JS.Promise<Doodle>
+                else
+                    sdk.database.updateDocument(doodlesCollectionID,d._id,d, [| "*" |]) : JS.Promise<Doodle>
+
+            doodlesById <- doodlesById.Add(saved._id, saved)
+
+            return saved
+        }
+        
+
+    // class Session
+    member this.SaveAsNew( doc : Types.Schema.Doodle ) : JS.Promise<Schema.Doodle> =
+        this.Save( { doc with ``$id`` = jsUndefined :?> string } )
+
+    member _.Save( doc : Types.Schema.Doodle ) : JS.Promise<Schema.Doodle> =
+        let dateTimeNow = Math.Truncate(double(DateTime.UtcNow.Ticks) / double(TimeSpan.TicksPerSecond))
+        let isUndefined x = (x :> obj) = (None :> obj)
+        let data =
+            {  doc
+                with
+                    ``$id`` = if doc.ownedBy = user._id then doc._id else (jsUndefined :?> string)
+                    ownedBy = user._id
+                    ownedByName = user.name
+                    modifiedOn = dateTimeNow
+                    createdOn = if (doc.createdOn = 0.0 || isUndefined(doc.createdOn)) then dateTimeNow else doc.createdOn
+            }
+            
+        server.UpdateCreate(data)
+
+```
+
+The lower-level function `UpdateCreate` determines whether we need to ask Appwrite to create a new document, or update an existing one. This depends on whether the `$id` field (mapped to `_id` using the `HasId` interface) is set (from a previous database fetch). 
+
+The return result from both types of call is the stored document, and this is most interesting to us when we've created a new document, since we now know the document's `$id`, and subsequent saves will be calls to `update`.
+
+Function `SaveAsNew` unsets the `$id` field, so that `UpdateCreate` is forced to call `createDocument`. This is how the UI implements `Save as Copy`.
+
+Function `Save` unsets `$id` if another user owns this document, so that again `UpdateCreate` is forced to call `createDocument`. This is how you end up with your own copy of someone else's doodle, and how we only fork that doodle once we actually save it.
+
+
+
+
+
+This would be an obvious starting point for a tool that can generate F# bindings such as the `Doodle` class above.
+
 On my development laptop:
 
 ```bash
