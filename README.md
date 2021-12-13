@@ -14,6 +14,8 @@
 - Saving Documents
 - Promises
 - User Sessions
+- Anonymous Users
+- Doodle Language
 
 ## Introduction
 
@@ -477,7 +479,7 @@ Casual visitors may edit a doodle and then decide they want to save it, and so d
 
 This has nothing to do with Appwrite! Doodles are what I used as a vehicle to study and learn Appwrite for this article, and for my own education. I forked a copy of `Fable.React.DrawingCanvas` from last year, which is one of my first forays into Fable. It included a simple turtle language, which I've brought into DoodleToy and heavily extended.
 
-The language's purpose is to implement turtle graphics, and for this article, I had this idea that everyone who read the article could contribute their own, and we'd have this marvellous and motley collection of doodles as a visitor's gallery.  I knew there'd be some very clever people visiting who'd try clever stuff (cos you is all functional programmmers innit), and so I invested some time into adding enough language features to allow things like fractals to be drawn, and to allow a modicum of user input.
+The language's purpose is to implement turtle graphics, and for this article, I had this idea that everyone who read the article could contribute their own, and we'd have this marvellous and motley collection of doodles as a visitor's gallery.  I knew there'd be some very clever people visiting who'd try clever stuff  and so I invested some time into adding enough language features to allow things like fractals to be drawn, and to allow a modicum of user input.
 
 The language parser is implemented with parser combinators, and I am endlessly fascinated with these things. I grew up with yacc and lex, and then eventually learned to write recursive descent parsers (in a progression of C -> C++ -> C#). RD parsing really demystified everything that yacc had done for me previously (though I believe yacc implements a different type of parser - LALR).
 
@@ -493,6 +495,22 @@ let add2 := fun n -> n + 2
 let mul := fun x -> fun y -> x * y
 ```
 
+It wouldn't take much to add more syntax that allows these constructs:
+
+```fs
+let mul := fun x y -> x * y
+
+let mul x y := x * y
+```
+
+Maybe in a future revision.
+
+A couple of other quirks:
+
+- `foo n 2` is parsed as `foo (n 2)` and results in `Undefined function 'n'`. Rewrite it as `foo (n) 2`
+
+- `foo (n) -2` works, but `foo (-n) 2` does not. This is because unary operators aren't implemented, but negative literals are. Rewrite this as `foo (0 - n) 2` or `foo (n * -1) 2`. 
+
 
 ## References
 
@@ -503,4 +521,7 @@ https://fable.io/ts2fable
 https://appwrite.io/docs/installation
 
 https://appwrite.io/docs/getting-started-for-web
+
+https://fsharpforfunandprofit.com/parser/
+
 
