@@ -238,13 +238,13 @@ The class `Doodle` is the F# model of the Appwrite `doodles` collection, configu
 
 Here's the configuration of the collections in Appwrite:
 
-![image](https://user-images.githubusercontent.com/285421/145881347-2ae2729c-b877-4c9f-b967-2d12199170a8.png)
+![image](https://user-images.githubusercontent.com/285421/145881347-2ae2729c-b877-4c9f-b967-2d12199170a8.png | image=200)
 
 Each of these collections has an F# counterpart in Types.fs. 
 
 The definition of `doodles` looks like this:
 
-![image](https://user-images.githubusercontent.com/285421/145881566-91fd9507-b979-4a92-a5ed-0a2658b5101c.png)
+![image](https://user-images.githubusercontent.com/285421/145881566-91fd9507-b979-4a92-a5ed-0a2658b5101c.png | image=200)
 
 Note that I gave `Source` a type of `markdown`, instead `text`. If you edit a record by hand in the Appwrite console, the text input element seems to strip off the newlines, even if you didn't change that field. The editor used for `markdown` fields looks to be much more capable of handling newlines. It doesn't seem to affect the way the data is sent back and forth - I treat it as a `string`. Now that the UI is more developed, I haven't needed to edit a record in the Appwrite console, so this is a minor issue. 
 
