@@ -112,7 +112,7 @@ A Server class manages the interface to Appwrite, and is passed as a context to 
 
 ```fs
 
-let viewMain server (model : System.IObservable<Model>) dispatch =
+let viewMain server (model : System.IObservable<Model>) dispatch : SutilElement =
     Bind.el( model, fun m ->
         match m.Session, m.Page with
         | _, Register -> Register.view server
@@ -139,8 +139,37 @@ This also includes a global dispatch function so that pages can invoke functiona
 Session is essentially a `(Server * User)`. It was going to capture the Server-based API that only applied to a signed-in user. This would mean the Profile page, for example, would be safe to call anything on the Session API, without needing to pass or check the user's signed-in status. For example: Saving a doodle, retrieving the user's doodles.  The current state of the project approximates this design intention.
 
 
+The router is implemented by subscribing to `window.location`, and then mapping URLs to Elmish messages, which are then dispatched:
 
+```fs
+    // Sutil provides Navigable as a helper
+    let unsubnav = Navigable.listenLocation UrlParser.parseMessage dispatch
+```
 
+The mapping function:
+
+```fs
+    let parseMessage(loc:Location) : Message =
+        let hash, query = (parseUrl loc)
+        match hash with
+        |"create" -> External NewDoodle
+        |"new" -> External NewDoodle
+        |"profile" -> SetPage (Profile,"navigate")
+        |"edit" ->
+            if query.ContainsKey("d") then
+                External (EditDoodleId query.["d"])
+            else
+                External (EditDoodleId "")
+        |"browse" -> SetPage (Browse,"navigate")
+        |"logout" -> SignOut
+        |"signout" -> SignOut
+        |"help" -> SetPage (Help,"navigate")
+        |"signin" -> SetPage (Login,"navigate")
+        |"login" -> SetPage (Login,"navigate")
+        |"verify" -> SetPage (AwaitingVerification,"navigate")
+        |"register" -> SetPage (Register,"navigate")
+        | _ -> SetPage (Home,"navigate")
+```
 
 
 
