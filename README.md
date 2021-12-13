@@ -104,7 +104,19 @@ SLL certificates are provided by [Let's Encrypt](https://letsencrypt.org/), and 
 
 The web application is written in F# with Fable, using an Elmish architecture (Model-View-Update), and [Sutil](https://sutil.dev) for the HTML and reactivity.
 
-[Sutil](https://sutil.dev) is another one of my projects, and I wanted to see how well it could handle a real (real-ish) application. It's also good [dog-fooding](https://en.wikipedia.org/wiki/Eating_your_own_dog_food). It has very little documentation (because I am a bad bad developer), but I'm working on it, slowly.  I have to say though that it just seems to work. You need to think in a different way to when you're using React; you need to think in a more binding-oriented fashion. 
+[Sutil](https://sutil.dev) is another one of my projects, and I wanted to see how well it could handle a real (real-ish) application. It's also good [dog-fooding](https://en.wikipedia.org/wiki/Eating_your_own_dog_food). It has very little documentation (because I am a bad bad developer), but I'm working on it, slowly.  It does seem to be up to the job. You need to think in a different way to when you're using React; you need to think in a more binding-oriented fashion. I particularly like the way it makes me think carefully about what is changing in the UI.
+
+Mostly the app is structured the same way it would be with Elmish React. A top level app that hosts a navbar, and routes URLs to various other pages. There is no top level dispatching; each page manages its own state.
+
+A Server class manages the interface to Appwrite, and is passed as a context to each page. 
+
+This also includes a global dispatch function so that pages can invoke functionality on the main page. I think that if I refactored right now, this would disappear. I was using this to invoke the editor from the browser, but since the URL router was developed, this is now done with `window.location.href`:
+
+```fs
+      window.location.href <- "#edit?d=<doodle-id>"
+```
+
+I had to stop tinkering with the code so that I had time to write this article.
 
 On my development laptop:
 
