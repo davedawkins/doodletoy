@@ -188,6 +188,15 @@ type [<AllowNullLiteral>] ApiAccount =
     abstract users: name: string * ?loggedIn: bool -> string[]
 ```
 
+(see [#429](https://github.com/fable-compiler/ts2fable/issues/429))
+
+Additionally, I wanted `'T[]` instead of `ResizeArray<'T>` (see [#428](https://github.com/fable-compiler/ts2fable/issues/428))
+
+I was able to tinker with ts2fable and produce the output I wanted, and since I couldn't be sure everyone would want the same
+behaviour, I added options to both the command-line and the [web](https://fable.io/ts2fable) versions of ts2fable:
+
+<img src='https://user-images.githubusercontent.com/285421/145894520-f19710d2-1e8b-4254-8b75-cb4e391d17a2.png' width='600px'>
+
 ## Server API
 
 The Server class contains all the touchpoints with Appwrite. This is how initialization is performed:
