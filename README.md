@@ -1,31 +1,18 @@
-# Writing Appwrite Apps in F#
+# Writing an Appwrite Web App in F#
 
 ## Outline
 
 - Introduction
-  - Deciding on a topic
-  - DoodleToy
-
 - DoodleToy 
-  - What it is
-  - How it's built and hosted
-
-- Using Appwrite in Fable
-  - Code examples
-  - Bindings
-  - Package
-
-- Doodle Language
-  - Parser combinators
-  - Lambdas
-  - Variables
-  - Expressions
-  - Control
-  - Animation
-  - Mouse Input
-
-- Using Sutil
-  - Stores, bindings, CSS
+- About Appwrite
+- Appwrite Server
+- Developing the Web Application
+- Router
+- F# Bindings for Appwrite
+- Server API
+- Domain Modeling
+- Saving Documents
+- Promises
 
 ## Introduction
 
@@ -138,6 +125,7 @@ This also includes a global dispatch function so that pages can invoke functiona
 
 Session is essentially a `(Server * User)`. It was going to capture the Server-based API that only applied to a signed-in user. This would mean the Profile page, for example, would be safe to call anything on the Session API, without needing to pass or check the user's signed-in status. For example: Saving a doodle, retrieving the user's doodles.  The current state of the project approximates this design intention.
 
+## Router
 
 The router is implemented by subscribing to `window.location`, and then mapping URLs to Elmish messages, which are then dispatched:
 
@@ -170,6 +158,37 @@ The mapping function:
         |"register" -> SetPage (Register,"navigate")
         | _ -> SetPage (Home,"navigate")
 ```
+
+## F# Bindings for Appwrite
+
+I used ts2fable to create the initial set of bindings, and then hand modified the result.
+
+One problem was that ts2fable initially was converting 
+
+```ts
+declare class Api {
+    account: {
+        users: (name : string, loggedIn? : boolean | undefined) => string[];
+    };
+}
+export { Api };
+```
+
+to
+
+```fs
+type [<AllowNullLiteral>] ApiAccount =
+    abstract users: (string -> (bool) option -> string[]) with get, set
+```
+
+whereas I would have preferred this output, which is a more usable interface with respect to the optional parameters:
+
+```fs
+type [<AllowNullLiteral>] ApiAccount =
+    abstract users: name: string * ?loggedIn: bool -> string[]
+```
+
+## Server API
 
 The Server class contains all the touchpoints with Appwrite. This is how initialization is performed:
 
@@ -207,6 +226,8 @@ type ListDocumentsResult<'T> =
     abstract sum : int
     abstract documents : 'T[]
 ```
+
+## Domain Modeling
 
 The class `Doodle` is the F# model of the Appwrite `doodles` collection, configured in the server.
 
@@ -284,6 +305,8 @@ You can also see the schema as a JSON document (abbreviated):
 
 This would be an obvious starting point for a tool that can generate F# bindings such as the `Doodle` class above.
 
+## Saving Documents
+
 Saving a doodle works like this:
 
 ```fs
@@ -329,6 +352,7 @@ Function `SaveAsNew` unsets the `$id` field, so that `UpdateCreate` is forced to
 
 Function `Save` unsets `$id` if another user owns this document, so that again `UpdateCreate` is forced to call `createDocument`. This is how you end up with your own copy of someone else's doodle, and how we only fork that doodle once we actually save it.
 
+## Promises
 
 Note how all these calls to Server (and Appwrite) are asynchronous in the form of a `Promise<'T>` return type. How does this work with the UI?
 
@@ -365,6 +389,9 @@ When the doodle is successfully saved, we can update the model with server's cop
 If there was an error, we update the model with the error message from the exception. The UI can react to this with a slide-in card that shows the message in red, or displays it in a status field, etc.
 
 The Save operation is now complete. The Promise has been threaded through the update function for us by the Elmish framework. We haven't had to do any of the Promise-plumbing we would normally do otherwise. This pattern works really well, and I find it very clean. 
+
+## User Sessions
+
 
 On my development laptop:
 
