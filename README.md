@@ -483,7 +483,7 @@ The language's purpose is to implement turtle graphics, and for this article, I 
 
 The language parser is implemented with parser combinators, and I am endlessly fascinated with these things. I grew up with yacc and lex, and then eventually learned to write recursive descent parsers (in a progression of C -> C++ -> C#). RD parsing really demystified everything that yacc had done for me previously (though I believe yacc implements a different type of parser - LALR).
 
-Because I never make things easy for myself, and because I enjoy learning from the ground up where I can, I implemented my own parser combinator library. I used Scott Wlaschin's article for reference and to re-inforce some key concepts. 
+Because I never make things easy for myself, and because I enjoy learning from the ground up where I can, I implemented my own parser combinators. I used [Scott Wlaschin's article](https://fsharpforfunandprofit.com/parser/) for reference. 
 
 I was able to add lambda functions, if/then conditionals and comments to the language. Functions are made by assigning a lambda to a variable. Multiple arguments are just curried.
 
@@ -495,15 +495,15 @@ let add2 := fun n -> n + 2
 let mul := fun x -> fun y -> x * y
 ```
 
-It wouldn't take much to add more syntax that allows these constructs:
+It wouldn't take much to add more syntax (parsers) that allows these constructs as macros for the curried forms shown above:
 
 ```fs
-let mul := fun x y -> x * y
+let mul := fun x y -> x * y  
 
 let mul x y := x * y
 ```
 
-Maybe in a future revision.
+I was determined not to add semicolons, or require parentheses for function arguments. As a result newlines are a terminator for statements.
 
 A couple of other quirks:
 
@@ -511,6 +511,9 @@ A couple of other quirks:
 
 - `foo (n) -2` works, but `foo (-n) 2` does not. This is because unary operators aren't implemented, but negative literals are. Rewrite this as `foo (0 - n) 2` or `foo (n * -1) 2`. 
 
+- absolutely useless error messages from the parser. If your code doesn't compile, try adding brackets to expressions.
+
+I will address all these issues at some point. It's been interesting exploring the parsing issues resulting from my design choices.
 
 ## References
 
