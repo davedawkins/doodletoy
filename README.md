@@ -171,7 +171,82 @@ The mapping function:
         | _ -> SetPage (Home,"navigate")
 ```
 
+The Server class contains all the touchpoints with Appwrite. This is how initialization is performed:
 
+```fs
+    open AppwriteSdk
+
+    let sdk = AppwriteSdk.Create()
+
+    let initSdk() =
+        sdk
+            .setEndpoint(serviceUrl)
+            .setProject(doodlesProjectID)
+            |> ignore
+```
+
+
+Getting a list of all the doodles in the database:
+
+```fs
+    member x.AllDoodles() = promise {
+            let! doodles = sdk.database.listDocuments(doodlesCollectionID) : JS.Promise<ListDocumentsResult<Doodle>>
+
+            doodlesById <- doodles.documents |> Array.map (fun d -> d._id,d) |> Map.ofArray
+
+            return doodles.documents
+    }
+```
+
+This would have been a one-liner, but I decided to implement a cache to avoid calls back to the server.
+
+The class `ListDocumentsResult` is a class I added to the Appwrite bindings module:
+
+```fs
+type ListDocumentsResult<'T> =
+    abstract sum : int
+    abstract documents : 'T[]
+```
+
+The class `Doodle` is the F# model of the Appwrite `doodles` collection, configured in the server.
+
+```fs
+  type Doodle = {
+        ``$id`` : string
+        name : string
+        description : string
+        source : string
+        ownedBy : string
+        ownedByName : string
+        createdOn : float
+        modifiedOn : float
+        isPrivate : bool
+    }
+    with
+        static member Create() : Doodle = {
+            ``$id`` = Unchecked.defaultof<_>
+            name = MakeName.makeName()
+            description = ""
+            source = Examples.templateSource
+            ownedBy = ""
+            ownedByName = ""
+            createdOn = 0.
+            modifiedOn = 0.
+            isPrivate = false }
+        interface HasId
+```
+
+Here's the configuration of the collections in Appwrite:
+
+![image](https://user-images.githubusercontent.com/285421/145881347-2ae2729c-b877-4c9f-b967-2d12199170a8.png)
+
+Each of these collections has an F# counterpart in Types.fs. 
+
+The definition of `doodles` looks like this:
+
+![image](https://user-images.githubusercontent.com/285421/145881566-91fd9507-b979-4a92-a5ed-0a2658b5101c.png)
+
+Note that I gave `Source` a type of `markdown`, instead `text`. If you edit a record by hand in the Appwrite console, the text input element seems to strip off the newlines, even if you didn't change that field. The editor used for `markdown` fields looks to be much more capable of handling newlines. It doesn't seem to affect the way the data is sent back and forth - I treat it as a `string`. Now that the UI is more developed, I haven't needed to edit a record in the Appwrite console, so this is a minor issue. 
 
 On my development laptop:
 
