@@ -278,13 +278,15 @@ You can also see the schema as a JSON document (abbreviated):
             "required": false,
             "list": []
         }
+    ]
 }
 ```
 
+This would be an obvious starting point for a tool that can generate F# bindings such as the `Doodle` class above.
+
 Saving a doodle works like this:
 
-```
-
+```fs
     // class Server
     member _.UpdateCreate( d : Doodle ) : JS.Promise<Doodle> =
         promise {
@@ -299,7 +301,6 @@ Saving a doodle works like this:
             return saved
         }
         
-
     // class Session
     member this.SaveAsNew( doc : Types.Schema.Doodle ) : JS.Promise<Schema.Doodle> =
         this.Save( { doc with ``$id`` = jsUndefined :?> string } )
@@ -318,7 +319,6 @@ Saving a doodle works like this:
             }
             
         server.UpdateCreate(data)
-
 ```
 
 The lower-level function `UpdateCreate` determines whether we need to ask Appwrite to create a new document, or update an existing one. This depends on whether the `$id` field (mapped to `_id` using the `HasId` interface) is set (from a previous database fetch). 
@@ -330,10 +330,41 @@ Function `SaveAsNew` unsets the `$id` field, so that `UpdateCreate` is forced to
 Function `Save` unsets `$id` if another user owns this document, so that again `UpdateCreate` is forced to call `createDocument`. This is how you end up with your own copy of someone else's doodle, and how we only fork that doodle once we actually save it.
 
 
+Note how all these calls to Server (and Appwrite) are asynchronous in the form of a `Promise<'T>` return type. How does this work with the UI?
 
+Here's the flow of control when we press `Save`:
 
+User presses the button, and this dispatches a `Save of Doodle` message:
 
-This would be an obvious starting point for a tool that can generate F# bindings such as the `Doodle` class above.
+```
+    Html.button [ text "Save"; Ev.OnClick (fun _ -> dispatch (Save doodle)) ]
+```
+
+The Elmish framework routes this directly to our `update` function:
+
+```fs
+let update server msg model =
+    match msg with 
+    | Save doodle -> model, Cmd.OfPromise.either (server.Save) doodle Saved Error
+```
+
+The `update` function handles `Save` by returning the model unchange, *and* a command that will invoke `server.Save(doodle)`. The Elmish framework performs the invoke for us and handles the result, when it finally appears. 
+
+Note that we passed two additional arguments in the command: `Saved` and `Error`. These are Elmish messages which will be dispatched accordingly, straight back to our update function. Here it is again showing the additional handlers:
+
+```fs
+let update server msg model =
+    match msg with 
+    | Save doodle -> model, Cmd.OfPromise.either (server.Save) doodle Saved Error
+    | Saved doodle -> { model with CurrentDoodle = doodle; IsModified = false }, Cmd.none
+    | Error exn -> { model with ErrorMessage = exn.Message }, Cmd.none
+```
+
+When the doodle is successfully saved, we can update the model with server's copy (which will have the new `$id` if this was the first save), and we can also mark the model as now being "unmodified". The UI can react to this by hiding the "Doodle has been edited" message, etc.
+
+If there was an error, we update the model with the error message from the exception. The UI can react to this with a slide-in card that shows the message in red, or displays it in a status field, etc.
+
+The Save operation is now complete. The Promise has been threaded through the update function for us by the Elmish framework. We haven't had to do any of the Promise-plumbing we would normally do otherwise. This pattern works really well, and I find it very clean. 
 
 On my development laptop:
 
