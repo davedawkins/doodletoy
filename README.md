@@ -455,7 +455,19 @@ It seems that Twitter isn't (yet?) supported as a provider. Hopefully soon.
 
 The result:
 
-<img src='https://user-images.githubusercontent.com/285421/145899049-8313235b-a02f-4cf9-bb2f-242d1e7d346e.png' width='600px'>
+<img src='https://user-images.githubusercontent.com/285421/145899049-8313235b-a02f-4cf9-bb2f-242d1e7d346e.png' width='400px'>
+
+# Anonymous Users
+
+Casual visitors to the site are allowed to create doodles, but not save them. We also want to increment the view count on doodles they click on. 
+
+However you can't send document updates (to the 'views' collection) unless you have a user session. What to do?
+
+My solution was to have a pre-defined "visitor" user with a nonsense email address. Guest visitors are initially logged in as this "visitor" user. This doesn't make me happy, and it's not recommended by Appwrite. An `anonymous session` capability does exist in the API, but I found that these would accumulate in the server. Because this has been a late-night project, I took the easy option to "get things working" and this is something I need to revisit and understand better.
+
+Casual visitors may edit a doodle and then decide they want to save it, and so decide to log in, or register and then sign in. To ensure they don't lose their work, any editor session is saved in browser local storage. Any attempt to start a new session asks if they would prefer to resume their previous edit session or discard.
+
+![image](https://user-images.githubusercontent.com/285421/145900164-1752b249-c473-4027-8f05-2e55ed07dc58.png)
 
 - Styling
 
