@@ -16,6 +16,7 @@
 - User Sessions
 - Anonymous Users
 - Doodle Language
+- References
 
 ## Introduction
 
@@ -45,6 +46,10 @@ The app is served from https://doodletoy.net, and is written in F# using [Fable]
 I used [ts2fable](https://fable.io/ts2fable) to create the F# bindings, and then hand-modified them. My intention is to release the bindings as nuget package Fable.Appwrite. While working on the bindings, I was able to contribute back some enhancements to ts2fable which you can see as the new option checkboxes on the [website](https://fable.io/ts2fable).
 
 The backend for the app is an Appwrite server instance hosted on a [Linode](https://www.linode.com) server. I am very impressed with how easy it was to get this up and running. I had a few teething problems with setting up email and a few other things, but searching github, Google and the Appwrite Discord server solved everything. They're a very helpful bunch over on Discord.
+
+The rest of this article is talks about the development of doodletoy with emphasis on the Appwrite interface. I'm not going to be too upset if you just want to go and make pretty pictures. I would be thrilled to see people signing in to create doodles of their own. Maybe come back later to read the rest of the article. 
+
+https://doodletoy.net
 
 ## About Appwrite
 
