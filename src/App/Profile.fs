@@ -74,9 +74,15 @@ let style = [
 
     rule ".doodle-grid" [
         Css.displayGrid
-        Css.gridTemplateColumns( [fr 3; fr 8; fr 1; fr 3; fr 3; fr 1] )
+        Css.gridTemplateColumns( [fr 11; fr 1] )
         Css.borderTop(px 1, solid, "#dddddd")
     ]
+
+    Media.MinWidth(UI.BreakPoint, [
+        rule ".doodle-grid" [
+            Css.gridTemplateColumns( [fr 3; fr 8; fr 1; fr 3; fr 3; fr 1] )
+        ]
+    ])
 
     rule ".doodle-grid>*" [
 //        Css.borderBottom(px 1, solid, "#dddddd")
@@ -110,22 +116,34 @@ let style = [
     rule ".error" [
         Css.color "red"
     ]
+
+    rule ".if-wide" [
+        Css.displayNone
+    ]
+
+    Media.MinWidth(UI.BreakPoint,[
+        rule ".if-wide" [
+            Css.displayInheritFromParent
+        ]
+    ])
 ]
 
 let formatDT formatString (date : System.DateTime) = Date.Format.localFormat Date.Local.englishUK formatString date
 let asDateTime n = System.DateTime(int64(n) * System.TimeSpan.TicksPerSecond)
 
 let viewRecord (server : Server) (t : Schema.Doodle ) dispatch =
+    let span content (media : string) = Html.span  [ Attr.className (media); text content]
+
     fragment [
         Html.span [
             Attr.className "name"
             text t.name
-            Ev.onClick (fun _ -> EditDoodle t |> server.Dispatch )
+            Ev.onClick (fun _ -> EditDoodleId t._id |> server.Dispatch )
         ]
-        Html.span t.description
-        Html.span (match t.isPrivate with true -> "Yes"|false -> "No")
-        Html.span (asDateTime(t.createdOn) |> formatDT "yyyy-MM-dd hh:mm:ss")
-        Html.span (asDateTime(t.modifiedOn) |> formatDT "yyyy-MM-dd hh:mm:ss")
+        span t.description "if-wide"
+        span (match t.isPrivate with true -> "Yes"|false -> "No")  "if-wide"
+        span (asDateTime(t.createdOn) |> formatDT "yyyy-MM-dd hh:mm:ss")  "if-wide"
+        span (asDateTime(t.modifiedOn) |> formatDT "yyyy-MM-dd hh:mm:ss")  "if-wide"
         Html.span [
             Html.i [ Attr.className "fas fa-trash-alt" ]
             Ev.onClick (fun _ ->
@@ -144,7 +162,7 @@ let viewRecord (server : Server) (t : Schema.Doodle ) dispatch =
 let view (session : DoodleSession) server =
     let model , dispatch = () |> Store.makeElmish init (update session) ignore
 
-    let header name = Html.span  [ Attr.className "header"; text name]
+    let header name media = Html.span  [ Attr.className ("header " + media); text name]
     Html.div [
         Attr.className "profile-container"
         Html.div [
@@ -169,12 +187,12 @@ let view (session : DoodleSession) server =
         ]
         UI.divc "doodle-grid" [
             fragment [
-                header "Name"
-                header "Description"
-                header "Private"
-                header "Created"
-                header "Modified"
-                header ""
+                header "Name" ""
+                header "Description" "if-wide"
+                header "Private" "if-wide"
+                header "Created" "if-wide"
+                header "Modified" "if-wide"
+                header "" ""
             ]
             Bind.el(model |> Store.map (fun m -> m.Doodles), fun doodles ->
                 fragment [

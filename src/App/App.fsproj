@@ -5,12 +5,13 @@
     <DefineConstants>USE_SUTIL</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="UI.fs" />
     <Compile Include="AppWriteSdk.fs" />
     <Compile Include="Examples.fs"/>
     <Compile Include="Types.fs" />
     <Compile Include="DrawingCanvas.fs" />
     <Compile Include="TurtleParser.fs" />
-    <Compile Include="UI.fs" />
+    <Compile Include="Documentation.fs"/>
     <Compile Include="Server.fs" />
     <Compile Include="Verify.fs" />
     <Compile Include="Register.fs" />
@@ -19,12 +20,15 @@
     <Compile Include="Editor.fs" />
     <Compile Include="Browse.fs" />
     <Compile Include="Home.fs" />
+    <Compile Include="Help.fs"/>
     <Compile Include="Profile.fs" />
     <Compile Include="App.fs" />
   </ItemGroup>
     <ItemGroup>
         <PackageReference Include="Fable.Promise" Version="2.*" />
         <PackageReference Include="Fable.Date" Version="1.*" />
+        <PackageReference Include="Fable.Fetch" Version="2.2.0" />
+        <PackageReference Include="Fable.Formatting.Markdown" Version="1.0.1" />
         <ProjectReference Include="..\..\..\Sutil\src\Sutil\Sutil.fsproj" />
         <!-- <Package Reference Include="Sutil" Version="1.0.0-*" /> -->
     </ItemGroup>

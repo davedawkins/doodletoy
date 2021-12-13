@@ -10,8 +10,8 @@ open Types.Schema
 [<Emit("undefined")>]
 let jsUndefined : obj = jsNative
 
-let appUrl = "http://localhost:8080/"
-//let appUrl = "https://doodletoy.net/"
+//let appUrl = "http://localhost:8080/"
+let appUrl = "https://doodletoy.net/"
 
 let private chatCollectionID = "617c11bb63b82"
 
@@ -24,6 +24,7 @@ let private visitorEmail = "visitor@solochimp.com"
 let private adminTeamId = "619d6583db1da"
 let private configurationCollectionId = "619dfd44d6fb5"
 
+
 type ServerModel = {
     User : SessionUser option
     Configuration : Configuration
@@ -32,6 +33,7 @@ type ServerModel = {
 type Server() =
     let mutable disposables : IDisposable list = []
     let mutable dispatch : (ExternalMessage -> unit) = ignore
+    let mutable doodlesById : Map<string,Doodle> = Map.empty
 
     let initModel() = {
         User = None
@@ -45,15 +47,18 @@ type Server() =
     let sdk = AppwriteSdk.Create()
 
     let logUser (userOpt : User option) =
-        JS.console.log("LogUser")
-        JS.console.dir(userOpt)
         userOpt |> function Some u -> JS.console.dir(u) | None -> ()
         userOpt
 
     let filterVisitor (userOpt : User option) =
+        JS.console.log($"filterVisitor: {userOpt}")
         match userOpt with
-        | Some u when u.email = "" || u.email = visitorEmail -> None
-        | _ -> userOpt
+        | Some u when u.email = "" || u.email = visitorEmail ->
+            None
+        | Some u ->
+            userOpt
+        | None ->
+            userOpt
 
     let setUser  =
         logUser >> filterVisitor //>> getTeam >> setUserStore
@@ -61,14 +66,19 @@ type Server() =
     let logError (msg : string) =
         JS.console.error(msg)
 
-    let setSessionUser user =
+    //let log (msg : string) =  () //JS.console.log(msg)
+
+    let setSessionUser (user : Option<SessionUser>) =
+        //log("setSessionUser" + (user |> function None -> "None"| Some u -> u.User.name))
+        //Fable.Core.JS.console.dir(model)
         Store.modify (fun m -> { m with ServerModel.User = user }) model
 
     let setConfiguration config =
+        //log("setConfiguration")
         Store.modify (fun m -> { m with ServerModel.Configuration = config }) model
 
     let startSession() = promise {
-        Fable.Core.JS.console.log("startSession")
+        //Fable.Core.JS.console.log("startSession")
 
         let! userOrVisitor = promise {
             try
@@ -87,12 +97,17 @@ type Server() =
             with _ -> return false
         }
 
-        let! configResult = sdk.database.listDocuments(configurationCollectionId) : JS.Promise<ListDocumentsResult<Configuration>>
-
-        let config =
-            match configResult.sum with
-            | 0 -> Configuration.Create()
-            | _ -> configResult.documents.[0]
+        let! config = promise {
+            try
+                let! configResult = sdk.database.listDocuments(configurationCollectionId) : JS.Promise<ListDocumentsResult<Configuration>>
+                match configResult.sum with
+                | 0 -> return Configuration.Create()
+                | _ -> return configResult.documents.[0]
+            with
+            | x ->
+                logError("listDocuments: " + x.Message)
+                return Configuration.Create()
+        }
 
         let sessionUser =
             userOrVisitor |> Some |> filterVisitor
@@ -132,6 +147,9 @@ type Server() =
 
     let addUnsub unsub =
         disposables <- Helpers.disposable unsub :: disposables
+
+    let doodlesToMapPairs (doodles : Doodle array) =
+        doodles |> Array.map (fun d -> d._id,d)
 
     member _.State : IObservable<ServerModel> = upcast model
 
@@ -194,11 +212,11 @@ type Server() =
             return likes.documents.Length
         }
 
-    member x.IncrementViewCount( d : Doodle ) =
+    member x.IncrementViewCount( id : string ) =
         promise {
-            let! allViews = x.Views(d)
+            let! allViews = x.Views(id)
             do! if allViews.Length = 0 then
-                    sdk.database.createDocument(viewsCollectionId, Views.Create(d), [|"*"|], [|"*"|])
+                    sdk.database.createDocument(viewsCollectionId, Views.Create(id), [|"*"|], [|"*"|])
                 else
                     let r = allViews.[0]
                     r.Increment()
@@ -258,8 +276,11 @@ type Server() =
 
     member _.SignOut() =
         promise {
-            try     sdk.account.deleteSession "current" |> ignore
-            with    _ -> ()
+            try
+                do! sdk.account.deleteSession "current"
+            with x ->
+                logError("SignOut: " + x.Message)
+                ()
             do! startSession()
             return ()
         }
@@ -268,14 +289,14 @@ type Server() =
         let likes = sdk.database.listDocuments( likesCollectionId, [| "doodleId=" + d._id |] ) : JS.Promise<ListDocumentsResult<Like>>
         likes |> Promise.map (fun r -> r.documents)
 
-    member _.Views( d : Doodle) : JS.Promise<Views[]> =
-        let views = sdk.database.listDocuments( viewsCollectionId, [| "doodleId=" + d._id |] ) : JS.Promise<ListDocumentsResult<Views>>
+    member _.Views( id : string ) : JS.Promise<Views[]> =
+        let views = sdk.database.listDocuments( viewsCollectionId, [| "doodleId=" + id |] ) : JS.Promise<ListDocumentsResult<Views>>
         views |> Promise.map (fun r -> r.documents)
 
     member x.GetDoodleView( d: Doodle ) =
         promise {
             let! likes = x.Likes d
-            let! views = x.Views d
+            let! views = x.Views d._id
             let! myLike =
                 x.SessionUser
                 |> Option.map( fun u -> x.FindLike(d,u.User) )
@@ -294,7 +315,21 @@ type Server() =
         sdk.database.deleteDocument(doodlesCollectionID,id)
 
     member _.GetDoodle( id : string ) =
-        sdk.database.getDocument(doodlesCollectionID,id) : JS.Promise<Doodle>
+        promise {
+            let! d = sdk.database.getDocument(doodlesCollectionID,id) : JS.Promise<Doodle>
+
+            doodlesById <- doodlesById.Add(d._id,d)
+
+            return d
+        }
+
+    member x.GetCachedDoodle( id : string ) : JS.Promise<Doodle> =
+        promise {
+            if doodlesById.ContainsKey(id) then
+                return doodlesById.[id]
+            else
+                return! x.GetDoodle(id)
+        }
 
     member x.RefreshDoodleView( id : string ) =
         promise {
@@ -304,8 +339,28 @@ type Server() =
 
     member x.AllDoodles() = promise {
             let! doodles = sdk.database.listDocuments(doodlesCollectionID) : JS.Promise<ListDocumentsResult<Doodle>>
+
+            doodlesById <- doodles.documents |> Array.map (fun d -> d._id,d) |> Map.ofArray
+
             return doodles.documents
     }
+
+    member _.UserDoodles ( id : string ) : JS.Promise<ListDocumentsResult<Doodle>> =
+        promise {
+            let! doodles =
+                sdk.database.listDocuments(
+                    doodlesCollectionID,
+                    [| "ownedBy=" + id |]
+            )
+
+            doodlesById <-
+                doodlesById
+                |> Map.toArray
+                |> Array.append (doodlesToMapPairs (doodles.documents))
+                |> Map.ofArray
+
+            return doodles
+        }
 
     member x.AllDoodleViews() = promise {
             let! doodles = x.AllDoodles()
@@ -315,6 +370,19 @@ type Server() =
                 |> Promise.all
             return dvs
     }
+
+    member _.UpdateCreate( d : Doodle ) : JS.Promise<Doodle> =
+        promise {
+            let! saved =
+                if String.IsNullOrEmpty(d._id) then
+                    sdk.database.createDocument(doodlesCollectionID, d, [| "*" |] ) : JS.Promise<Doodle>
+                else
+                    sdk.database.updateDocument(doodlesCollectionID,d._id,d, [| "*" |]) : JS.Promise<Doodle>
+
+            doodlesById <- doodlesById.Add(saved._id, saved)
+
+            return saved
+        }
 
     member _.Iter ( f : Appwrite -> unit ) =
         sdk |> f
@@ -352,20 +420,16 @@ type DoodleSession(server : Server, user : User) =
                     modifiedOn = dateTimeNow
                     createdOn = if (doc.createdOn = 0.0 || isUndefined(doc.createdOn)) then dateTimeNow else doc.createdOn
             }
-        server.Map( fun sdk ->
-            if String.IsNullOrEmpty(data._id) then
-                sdk.database.createDocument(doodlesCollectionID, data, [| "*" |] )
-            else
-                sdk.database.updateDocument(doodlesCollectionID,data._id,data, [| "*" |])
-        )
+        server.UpdateCreate(data)
+        // server.Map( fun sdk ->
+        //     if String.IsNullOrEmpty(data._id) then
+        //         sdk.database.createDocument(doodlesCollectionID, data, [| "*" |] )
+        //     else
+        //         sdk.database.updateDocument(doodlesCollectionID,data._id,data, [| "*" |])
+        // )
 
     member _.UserDoodles () : JS.Promise<ListDocumentsResult<Doodle>> =
-        server.Map (fun sdk ->
-            sdk.database.listDocuments(
-                doodlesCollectionID,
-                [| "ownedBy=" + user._id |]
-            )
-        )
+        server.UserDoodles(user._id)
 
     member this.Unlike (t : Doodle) =
         promise {

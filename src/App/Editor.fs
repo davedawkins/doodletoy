@@ -12,6 +12,8 @@ open System
 open Sutil.Styling
 open AppwriteSdk
 
+let private _log (s:string) = Fable.Core.JS.console.log(s)
+
 module Ticker =
 
     let Create<'T> (interval : int) (init : unit -> 'T) (value : int -> 'T -> 'T) (dispose : 'T -> unit)=
@@ -164,10 +166,14 @@ let update (server : Server) (session:DoodleSession option) msg (model : Model)=
     | Init d ->
         { model with Doodle = d; IsEdited = false }, Cmd.none
     | Error x -> model, Cmd.none
-    | Saved d ->
+    | Saved newDoodle ->
         let _cacheId = model.Doodle._id
         //Fable.Core.JS.console.log($"ID after save is {d._id}")
-        { model with Doodle = d; IsEdited = false }, Cmd.ofMsg (ClearLocal _cacheId)
+        { model with Doodle = newDoodle; IsEdited = false },
+            Cmd.batch [
+                Cmd.ofMsg (ClearLocal _cacheId)
+                [(fun d -> if _cacheId <> newDoodle._id then Browser.Dom.window.location.href <- "#edit?d=" + newDoodle._id)]
+                ]
     | Discard ->
         let _cacheId = model.Doodle._id
         let cmd =
@@ -203,55 +209,84 @@ let update (server : Server) (session:DoodleSession option) msg (model : Model)=
         { model with TickCount = model.TickCount + 1}, Cmd.none
 
 let style = [
-    rule ".turtle-details" [
+
+    rule ".editor-container" [
+        Css.displayGrid
+        Css.gap (rem 2)
+    ]
+
+    Media.MinWidth( UI.BreakPoint, [
+        rule ".editor-container" [
+            Css.displayFlex
+            Css.flexDirectionRow
+            Css.justifyContentCenter
+            Css.alignItemsFlexStart
+        ]
+    ])
+
+    rule ".doodle-name-description" [
         Css.gap (rem 0.5)
         Css.flexShrink 1
         Css.flexGrow 1
         Css.maxWidth (vh 65)
     ]
-    rule "label" [
-        Css.width (px 100)
-    ]
-    rule ".turtle-details input" [
+
+    rule ".doodle-name-description input" [
         Css.flexGrow 1
     ]
-    rule ".turtle-details textarea" [
+
+    rule ".doodle-name-description textarea" [
         Css.flexGrow 1
         Css.height (rem 5)
     ]
-    rule ".turtle-details .buttons" [
+    rule ".doodle-name-description .buttons" [
         Css.gap (rem 1)
         Css.justifyContentCenter
     ]
 
-    rule ".turtle-view" [
+    rule ".doodle-name-description label" [
+        Css.width (px 100)
+    ]
+
+    rule ".doodle-canvas-container" [
         Css.width (percent 100)
     ]
 
-    rule ".turtle-editor" [
-        Css.flexGrow 1
-        Css.flexShrink 1
-        Css.width (px 500)
-        Css.height (px 710)
-        Css.minWidth (px 400)
-        Css.maxWidth (px 700)
+    rule ".doodle-editor" [
         Css.backgroundColor "#202020"
         Css.color "beige"
         Css.padding (rem 1)
         Css.fontFamily "Consolas, monospace"
         Css.fontSize (pt 10)
+
+        Css.flexGrow 1
+        Css.flexShrink 1
+        Css.height (px 710)
     ]
 
+    Media.MinWidth( UI.BreakPoint,[
+        rule ".doodle-editor" [
+            Css.width (px 500)
+            Css.minWidth (px 400)
+            Css.maxWidth (px 700)
+        ]
+    ])
 ]
 
-let turtleView (dispatch : (float*float) -> unit) turtle =
+Fable.Core.JS.console.log("Px 1000=" + (string (px 1000)) )
+
+let drawingCanvas items props =
+    DrawingCanvas items props
+    //UI.divc "test-canvas" items
+
+let doodleCanvasContainer (dispatch : (float*float) -> unit) doodle =
     Html.div [
-        Attr.className "turtle-view"
+        Attr.className "doodle-canvas-container"
         Attr.style [
             Css.flexGrow 1
             Css.custom ("aspect-ratio", "1 / 1")
         ]
-        DrawingCanvas [
+        drawingCanvas [
             Attr.style [
                 Css.width (percent 100)
                 Css.height (percent 100)
@@ -261,27 +296,39 @@ let turtleView (dispatch : (float*float) -> unit) turtle =
                 Css.borderRadius (px 10)
             ]
         ] {
-            Drawing = turtle
+            Drawing = doodle
             //Redraw = ignore
             OnMouseMove = Some dispatch }
     ]
 
-let _view readonly model dispatch =
+let _view (session : DoodleSession option) model dispatch =
     let mutable mx = 0.0
     let mutable my = 0.0
+    let readonly = session.IsNone
 
-    UI.flexRow [
+    let isMyDoodle (d : Schema.Doodle) =
+        match session with
+        | Some s -> s.User._id = d.ownedBy
+        | _ -> false
 
-        Attr.style [
-            Css.justifyContentSpaceBetween
-            Css.gap (rem 4)
-            Css.custom("align-items", "start")
-        ]
+    let isNewDoodle (d : Schema.Doodle) =
+        isNull(d._id)
 
-        UI.flexColumn [
-            Attr.className "turtle-details"
+    // Details | TextArea
+    UI.divc "editor-container" [
 
-            model |> Store.map turtleFromModel |> (turtleView (Mouse>>dispatch))
+        // Attr.style [
+        //     Css.justifyContentSpaceBetween
+        //     Css.gap (rem 4)
+        //     Css.custom("align-items", "start")
+        // ]
+
+        // Doodle
+        // Name+Description+Buttons
+        UI.grid [
+            Attr.className "doodle-name-description"
+
+            model |> Store.map turtleFromModel |> (doodleCanvasContainer (Mouse>>dispatch))
 
             UI.flexRow [
                 Html.label [ text "Name:" ]
@@ -301,32 +348,39 @@ let _view readonly model dispatch =
                 ]
             ]
             if not readonly then
-                UI.flexRow [
-                    Attr.className "buttons"
-                    Html.button [
-                        Bind.el(model |> Store.map (fun m -> m.IsEdited),
-                            function true -> text "Save *" | false -> text "Save"
-                        )
-                        Ev.onClick (fun _ -> dispatch Save)
-                    ]
-                    Html.button [
-                        text "Save as New"
-                        Ev.onClick (fun _ -> dispatch SaveAsNew)
-                    ]
-                    Bind.visibility (model |> Store.map (fun m -> m.IsEdited)) <|
+
+                Bind.el( model |> Store.map (fun m -> m.Doodle, m.IsEdited) |> Observable.distinctUntilChanged , fun (doodle,isEdited) ->
+                    UI.flexRow [
+                        if isEdited then
+                            Html.span "Doodle has been modified: "
+
+                        Attr.className "buttons"
+
+                        if isEdited && not (isNewDoodle doodle) && isMyDoodle doodle then
+                            Html.button [
+                                text ("Save Changes")
+                                Ev.onClick (fun _ -> dispatch Save)
+                            ]
+
                         Html.button [
-                            text "Discard"
-                            Ev.onClick (fun _ -> dispatch Discard)
+                            text ("Save as Copy")
+                            Ev.onClick (fun _ -> dispatch SaveAsNew)
                         ]
-                ]
+
+                        if isEdited then
+                            Html.button [
+                                text "Discard Changes"
+                                Ev.onClick (fun _ -> _log("discard"); dispatch Discard)
+                            ]
+                ])
         ]
 
         Html.textarea [
-            Attr.className  "turtle-editor"
+            Attr.className  "doodle-editor"
             Bind.attr("value", model .> (fun m -> m.Doodle.source), dispatch << SetSource)
         ]
     ] |> withStyle style
 
 let view (server : Server) (session : DoodleSession option) doodle =
     let model, dispatch = doodle |> Store.makeElmish init (update server session) ignore
-    _view (session.IsNone) model dispatch
+    _view session model dispatch

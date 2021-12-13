@@ -1,0 +1,57 @@
+* {
+    font-family: 'Titillium Web', sans-serif;
+}
+
+html, body {
+    background-color: rgb(251, 253, 239);
+    height: 100%;
+}
+button {
+    border: 1px solid hsla(257.6, 56.9%, 20%, 0.10);
+    border-radius: 15px;
+    background-color: hsla(257.6, 56.9%, 20%, 0.10);
+    color: black;
+    padding: 0.25rem 1rem;
+    cursor: pointer;
+}
+button:hover {
+    background-color: hsla(257.6, 56.9%, 20%, 0.20);
+}
+button:active {
+    background-color: hsla(257.6, 56.9%, 20%, 0.40);
+}
+input[type=text], input[type=password] {
+    padding: 0.3rem;
+    border-radius: 6px;
+    border: 1px solid hsla(257.6, 56.9%, 20%, 0.20);
+}
+input[type=text].error, input[type=password].error {
+    border: 2px solid hsla(0, 100%, 65%, 0.6);
+}
+input[type=text].success, input[type=password].success {
+    border: 2px solid hsla(118, 100%, 65%, 0.6);
+}
+h1 {
+    font-size: 2rem
+}
+h2 {
+    font-size: 1.5rem
+}
+h3 {
+    font-size: 1.25rem
+}
+h4 {
+    font-size: 1.2rem
+}
+a, a:visited, a:hover, a:active {
+  color: inherit;
+}
+a {
+    color: hsla(257.6, 56.9%, 20%, 0.40);
+}
+a:hover {
+    color: hsla(257.6, 56.9%, 20%, 0.60);
+}
+a:active {
+    color: hsla(257.6, 56.9%, 20%, 0.80);
+}

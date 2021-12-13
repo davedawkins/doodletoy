@@ -8,6 +8,8 @@ open type Feliz.length
 
 open Fable.Core.JsInterop
 
+let BreakPoint = px 768
+
 let headerStyle = [
     let textColor = "rgb(251, 253, 239)"
 
@@ -16,13 +18,14 @@ let headerStyle = [
 
     rule "header" [
         Css.displayFlex
-        Css.flexDirectionRow
+        Css.flexDirectionColumn
         Css.justifyContentSpaceBetween
         Css.backgroundColor "#281651"
         Css.color textColor
         Css.paddingLeft (rem 1)
         Css.paddingRight (rem 1)
-        //Css.fontWeightBold
+        Css.paddingBottom (rem 1)
+        Css.overflowHidden
     ]
 
     rule "header a" [
@@ -41,10 +44,30 @@ let headerStyle = [
 
     rule ".ui-nav-menu" [
         Css.displayFlex
-        Css.flexDirectionRow
-        Css.height (percent 100)
-        Css.gap (rem 1)
+        Css.flexDirectionColumn
     ]
+
+    rule ".if-wide" [
+        Css.displayNone
+    ]
+
+    Media.MinWidth( BreakPoint, [
+
+        rule ".if-wide" [
+            Css.displayInheritFromParent
+        ]
+
+        rule "header" [
+            Css.flexDirectionRow
+            Css.paddingBottom (rem 0)
+        ]
+
+        rule ".ui-nav-menu" [
+            Css.flexDirectionRow
+            Css.height (percent 100)
+            Css.gap (rem 1)
+        ]
+    ])
 
     rule ".ui-nav-item" [
         Css.displayFlex
@@ -120,6 +143,11 @@ type ModalOptions = {
         { ShowCancel = true; OnCancel = ignore; Buttons = []; Content = content }
 
 type UI =
+    static member grid (children:SutilElement seq) =
+        Html.div (
+            [ Attr.styleAppend [ Css.displayGrid ] ]
+            |> Seq.append children)
+
     static member flexColumn (children:SutilElement seq) =
         Html.div (
             [ Attr.styleAppend [ Css.displayFlex; Css.flexDirectionColumn ] ]
@@ -139,15 +167,24 @@ type UI =
     static member navItem label click =
         UI.divc "ui-nav-item" [ Html.a [ Attr.href "#"; text label; Ev.onClick (fun e -> e.preventDefault(); click())] ]
 
+    static member navUrl label url =
+        UI.divc "ui-nav-item" [ Html.a [ Attr.href url; text label ] ]
+
     static member navLabel label =
         UI.divc "ui-nav-item" [ text label ]
+
+    static member ifWide items =
+        UI.divc "if-wide" items
+
+    static member navLabelIfWide label =
+        UI.ifWide [ UI.navLabel label ]
 
     static member navLabelMuted label =
         UI.divc "ui-nav-item ui-muted" [ text label ]
 
-    static member navLogo label click =
+    static member navLogo label url =
         UI.divc "ui-nav-logo" [
-            UI.navItem label click
+            UI.navUrl label url
         ]
 
     static member navDropdown label items =

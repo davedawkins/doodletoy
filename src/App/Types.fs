@@ -2,17 +2,134 @@ module Types
 
 open Sutil.DOM
 open AppwriteSdk
-type Page =
-    | Login
-    | Register
-    | AwaitingVerification
-    | Registered
-    | Profile
-    | Browse
-    | Home
-    | Editor
-    | Chat
+open System
 
+module MakeName =
+    let nouns = [|
+        "apple"
+        "apricot"
+        "avocado"
+        "banana"
+        "bellPepper"
+        "bilberry"
+        "blackberry"
+        "blackCurrant"
+        "bloodOrange"
+        "blueberry"
+        "boysenberry"
+        "breadfruit"
+        "canary melon"
+        "cantaloupe"
+        "cherimoya"
+        "cherry"
+        "chiliPepper"
+        "clementine"
+        "cloudberry"
+        "coconut"
+        "cranberry"
+        "cucumber"
+        "currant"
+        "damson"
+        "date"
+        "dragonfruit"
+        "durian"
+        "eggplant"
+        "elderberry"
+        "feijoa"
+        "fig"
+        "gojiberry"
+        "gooseberry"
+        "grape"
+        "grapefruit"
+        "guava"
+        "honeydew"
+        "huckleberry"
+        "jackfruit"
+        "jambul"
+        "jujube"
+        "kiwi"
+        "kumquat"
+        "lemon"
+        "lime"
+        "loquat"
+        "lychee"
+        "mandarine"
+        "mango"
+        "mulberry"
+        "nectarine"
+        "nut"
+        "olive"
+        "orange"
+        "papaya"
+        "passionfruit"
+        "peach"
+        "pear"
+        "persimmon"
+        "physalis"
+        "pineapple"
+        "plum"
+        "pomegranate"
+        "pomelo"
+        "mangosteen"
+        "quince"
+        "raisin"
+        "rambutan"
+        "raspberry"
+        "redcurrant"
+        "rockMelon"
+        "salal berry"
+        "satsuma"
+        "starfruit"
+        "strawberry"
+        "tamarillo"
+        "tangerine"
+        "tomato"
+        "watermelon"
+        |]
+    let adjectives = [|
+        "big"
+        "scary"
+        "fuzzy"
+        "whizzy"
+        "wonky"
+        "spinning"
+        "cloudy"
+        "sunny"
+        "rainy"
+        "glowing"
+        "freezing"
+        "hairy"
+        "lively"
+        "electric"
+        "arcadian"
+        "cagey"
+        "cerulean"
+        "capricious"
+        "dapper"
+        "spiffy"
+        "modest"
+        "exultant"
+        "jocular"
+        "luminous"
+        "munificent"
+        "redolent"
+        "sagacious"
+        "succint"
+        "tenacious"
+        "verdant"
+        "quiet"
+        "noisy"
+        "bouncy"
+        "super"
+        "hyper"
+        "instant"
+    |]
+    let shuffleG xs = xs |> Seq.sortBy (fun _ -> Guid.NewGuid())
+    let makeName() =
+        let a = adjectives |> shuffleG |> Seq.head
+        let b = nouns |> shuffleG |> Seq.head
+        let capFirst (x : string) = x.Substring(0,1).ToUpper() + x.Substring(1)
+        (capFirst a) + (capFirst b)
 module Schema =
     [<AllowNullLiteral>]
     type ChatMessage =
@@ -34,7 +151,7 @@ module Schema =
     with
         static member Create() : Doodle = {
             ``$id`` = Unchecked.defaultof<_>
-            name = ""
+            name = MakeName.makeName()
             description = ""
             source = Examples.templateSource
             ownedBy = ""
@@ -70,8 +187,8 @@ module Schema =
                 doodleId = id
                 numViews = n
             }
-        static member Create( t : Doodle ) =
-            Views.Create(t._id, 1.0)
+        static member Create( id : string ) =
+            Views.Create(id, 1.0)
 
         member x.Increment() =
             x.numViews <- x.numViews + 1.0
@@ -91,9 +208,20 @@ type SessionUser = {
     IsAdmin       : bool
 }
 
+type Page =
+    | Login
+    | Register
+    | AwaitingVerification
+    | Registered
+    | Profile
+    | Browse
+    | Home
+    | Help
+    | Editor of Schema.Doodle
+    | Chat
 type ExternalMessage =
     | Verified of Result<string,string>
     | RegisteredNewAccount
     | RegisterNewAccount
     | NewDoodle
-    | EditDoodle of Schema.Doodle
+    | EditDoodleId of string

@@ -82,9 +82,14 @@ module DoodleView =
             Css.flexDirectionColumn
             Css.fontSize (percent 75)
             Css.alignItemsCenter
-            Css.width (px options.SizePx)
+            Css.margin(px 0, auto)
         ]
 
+        Media.MinWidth( UI.BreakPoint, [
+            rule ".doodle-card" [
+                Css.width (px options.SizePx)
+            ]
+        ])
         rule ".doodle-view" [
             Css.cursorPointer
             Css.width (percent 100)
@@ -121,8 +126,8 @@ module DoodleView =
             disposeOnUnmount [ drawingS ]
 
             UI.divc "doodle-view" [
-                Editor.turtleView (fun mxy -> mousexy <- mxy) drawingS
-                Ev.onClick (fun _ -> EditDoodle m.Doodle |> server.Dispatch)
+                Editor.doodleCanvasContainer (fun mxy -> mousexy <- mxy) drawingS
+                Ev.onClick (fun _ -> Browser.Dom.window.location.href <- "#edit?d=" + m.Doodle._id)
 
                 if options.Animation = Hover then
                     Ev.onMouseEnter (fun _ -> startAnimate())
@@ -206,14 +211,21 @@ let style = [
         Css.custom("grid-template-columns", "repeat(auto-fill, minmax(250px, 1fr))")
     ]
 
+    rule "div.explain" [
+        Css.marginBottom (rem 2)
+    ]
+    rule ".explain>p" [
+        Css.lineHeight (rem 1.5)
+        Css.marginTop (rem 0.5)
+        Css.marginBottom (rem 0.5)
+    ]
+
 ]
 
 open DoodleView
 
 let view (server : Server) =
     let model, dispatch = server |> Store.makeElmish init (update server) ignore
-    //let featured() = Editor.drawTurtle Examples.clockSource ()
-    //let drawingStore = Editor.Ticker.Create 40 featured (fun _ _ -> featured()) ignore
 
     let options = {
         Animation = Hover
@@ -221,11 +233,12 @@ let view (server : Server) =
     }
 
     Html.div [
-        //DOM.disposeOnUnmount [drawingStore]
-        Attr.className "hero"
-        //text "Featured Turtle"
-        //Turtle.turtleView drawingStore
+        Attr.className "browse"
+        UI.divc "explain" [
+            Html.p "Hover over a doodle to activate it; it may animate and may also respond to the mouse location. "
+            Html.p "Click on a doodle to see how it works and create your own version of it"
+        ]
         UI.divc "turtle-browser" [
             Bind.each( model |> Store.map (fun m -> m.Doodles), DoodleView.view server options, (fun r -> r._id) )
-        ] |> withStyle style
-    ]
+        ]
+    ] |> withStyle style
