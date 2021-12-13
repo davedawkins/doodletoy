@@ -13,6 +13,7 @@
 - Domain Modeling
 - Saving Documents
 - Promises
+- User Sessions
 
 ## Introduction
 
@@ -401,63 +402,65 @@ The Save operation is now complete. The Promise has been threaded through the up
 
 ## User Sessions
 
+One thing I wanted to fully explore was authorizing users, both with OAuth2 ("sign in with Goodle") and regular registration. I wanted the site to work like shadertoy where anonymous visitors (guests) would be able to do everything except save their doodles. I also wanted no work to be lost if a user started editing a doodle anonymously then decided they wanted to save their work. Their work needed to be preserved throughout their sign-in or registration process.
 
-On my development laptop:
+Appwrite does an amazing job of making all of this very easy. In Appwrite server console, you just select which 3rd party providers you wish to support. You have to go to your own account with each provider and configure the referring application. This can be a challenge; each provider is slightly different but you soon get to recognize the relevant parts.
 
-```bash
-npm install appwrite
+It's at this stage you'll be grateful you don't have any non-standard ports for your Appwrite server installation. I think I managed to do this, but when anything went wrong, this was what I suspected first and so I decided that standard ports would just remove that as a possible issue. Now that I have everything working (well...), I may go back and see what's possible. Ideally I want a single host instance with multiple `https://` domains served on standard ports, for Appwrite and for the web app. 
+
+Once you have these set up, this is how you initiate a user session via an external provider:
+
+```fs
+   sdk.account.createOAuth2Session( provider, appUrl, appUrl ) 
 ```
 
-Find the types node_modules/appwrite/types/sdk.d.ts
+where `provider = "google"` (e.g.) and `appUrl = "https://doodletoy.net"`. It's that easy.
 
-Pass this through ts2fable
+If an account is already set up then you can create the session with a username and password instead:
 
-A little more work is required to tweak the bindings, but ts2fable does a great job of the bulk of the translation.
+```fs
+   sdk.account.createSession(email,password)
+```
 
-- Talk about the property getter/setter thing
+For doodletoy, you can register for a new account, and after you've collected a name, email and password from the user, you call:
 
-## Appwrite Web Application
+```fs
+    sdk.account.create(email, password, name)
+```
 
-I wanted in particular to explore the ability to authorize a user with (say) Github and/or Google, and then interact with other users. I wasn't sure if this would be a game, or some kind of chat, or a combination of both. I knew just those objectives would cover some interesting APIs, in particular authorization, database and subscription to events.
+The account is created immediately, and you can sign the user in to create a session, but the session is marked `Unverified`. It's your
+own business logic that determines how you handle unverified users. Doodletoy doesn't allow unverified sessions to save doodles and it hides the `Profile` page.
 
-Initially, I took the default Fable template and made a tiny chat app that worked directly on the DOM.
-I wanted to be completely independent of React / Sutil / etc while I tested the API.
+To start the process of verification, call 
 
-Eventually I converted to Sutil, but you should be able to convert this app very easily to Fable.React or Feliz (future me may have done this already, in which case I'll put the link here.)
+```fs
+   sdk.account.createVerification( appUrl )
+```
 
-- Authorization
+The Appwrite server will send an email to the user's registered email address with a magic link, which is your `appUrl` but with a `secret` as a URL query parameter.
 
-Fun with github, google, discord. Github wanted email access explicitly set - needed to log output to diagnose. No twitter module.
+When your application initializes, you can check the URL and if the `secret` is present, send it to the Appwrite server:
 
-- Recording views for visitors
+```fs
+   sdk.account.updateVerification(userId, secret)
+```
 
-Not logged in so no session
+Here are some outstanding issues with doodletoy's session management:
+
+- I really wanted Twitter as a provider - you're probably reading this via a Tweet, and I wanted it to be super-easy for you to log in and save your Doodle.
+- "Forgotten password" is not yet implemented
+- For some reason, Oauth2.0 is not working on mobile for me. I may get this fixed before the article goes out, but if you're reading this, then I didn't :-(
+
+It seems that Twitter isn't (yet?) supported as a provider. Hopefully soon.
+
+The result:
+
+<img src='https://user-images.githubusercontent.com/285421/145899049-8313235b-a02f-4cf9-bb2f-242d1e7d346e.png' width='600px'>
 
 - Styling
 
 Decided I could style the whole thing myself - Kevin Powell showed me many cool tips via his YT channel. No bulma.
 Using a reset
-
-- App
-
-Decided to make use of Fable.React.DrawingCanvas. Converted it to Sutil.
-
-Similar in style to shadertoy.com, but for turtle graphics. "turtletoy" -- alas it's been done. So that's how we ended
-up with doodletoy.
-
-- Language
-
-Extended the simple language to handle function calls and to define lambdas
-
-- Own hosting server
-
-Decided to keep things simple and give appwrite its own server so that we didn't need to map any ports to accomodate the existing sutil.dev website. This would remove one extra factor to consider when debugging OAUTH2 redirect_uri issues at least.
-
-## ts2fable
-
-## Doodle Language
-
-## Parser Combinators
 
 See [Appendix A] for some details
 
