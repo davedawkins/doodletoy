@@ -110,13 +110,39 @@ Mostly the app is structured the same way it would be with Elmish React. A top l
 
 A Server class manages the interface to Appwrite, and is passed as a context to each page. 
 
+```fs
+
+let viewMain server (model : System.IObservable<Model>) dispatch =
+    Bind.el( model, fun m ->
+        match m.Session, m.Page with
+        | _, Register -> Register.view server
+        | _, Registered -> Verify.view true server
+        | _, AwaitingVerification -> Verify.view false server
+        | _, Home -> Home.view server
+        | _, Help -> Help.view server
+        | _, Browse -> Browse.view server
+        | _, Editor d -> Editor.view server m.Session d
+        | Some session, Profile -> Profile.view  session server
+        | None, Profile -> Verify.view false server
+        | _, _ -> Login.view server
+    )
+```
+
 This also includes a global dispatch function so that pages can invoke functionality on the main page. I think that if I refactored right now, this would disappear. I was using this to invoke the editor from the browser, but since the URL router was developed, this is now done with `window.location.href`:
 
 ```fs
       window.location.href <- "#edit?d=<doodle-id>"
 ```
 
-I had to stop tinkering with the code so that I had time to write this article.
+(I had to stop tinkering with the code so that I had time to write this article.)
+
+Session is essentially a `(Server * User)`. It was going to capture the Server-based API that only applied to a signed-in user. This would mean the Profile page, for example, would be safe to call anything on the Session API, without needing to pass or check the user's signed-in status. For example: Saving a doodle, retrieving the user's doodles.  The current state of the project approximates this design intention.
+
+
+
+
+
+
 
 On my development laptop:
 
