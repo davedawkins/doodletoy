@@ -1,5 +1,7 @@
 # Writing an Appwrite Web App in F#
 
+![koch5-low](https://user-images.githubusercontent.com/285421/145909618-1f541804-d85a-481b-bbdf-e34cfeee1d5d.gif)
+
 ## Outline
 
 - Introduction
@@ -22,16 +24,7 @@
 
 I did a scary thing and signed up for 2021's Advent of F# without knowing exactly what it was, or what I'd produce. I'd been looking at things like Firebase, and then discovered Appwrite. I realized this would serve as a fallback topic until I thought of something much cooler, like virtual reality or monad lasers. It turns out Appwrite is pretty cool, so I built https://doodletoy.net as both a broad learning exercise and my advent entry.
 
-Here's a list of stuff I got to work on with this project:
-
-- Appwrite
-- Docker (installing Appwrite on Linode server)
-- Converting TS into Fable (and making contribution to https://fable.io/ts2fable)
-- Parser combinators
-- Language design
-- Canvas2D
-- CSS styling top-to-bottom (no framework)
-- Sutil (F# web framework)
+I really enjoyed the breadth of fun topics this project brought me into contact with, and in this article I try to discuss a few of them while keeping a focus on Appwrite in F#.
 
 ## DoodleToy
 
