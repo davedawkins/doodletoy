@@ -406,7 +406,7 @@ The Save operation is now complete. The Promise has been threaded through the up
 
 ## User Sessions
 
-One thing I wanted to fully explore was authorizing users, both with OAuth2 ("sign in with Goodle") and regular registration. I wanted the site to work like shadertoy where anonymous visitors (guests) would be able to do everything except save their doodles. I also wanted no work to be lost if a user started editing a doodle anonymously then decided they wanted to save their work. Their work needed to be preserved throughout their sign-in or registration process.
+One thing I wanted to fully explore was authorizing users, both with OAuth2 ("sign in with Google") and regular registration. I wanted the site to work like shadertoy where anonymous visitors (guests) would be able to do everything except save their doodles. I also wanted no work to be lost if a user started editing a doodle anonymously then decided they wanted to save their work. Their work needed to be preserved throughout their sign-in or registration process.
 
 Appwrite does an amazing job of making all of this very easy. In Appwrite server console, you just select which 3rd party providers you wish to support. You have to go to your own account with each provider and configure the referring application. This can be a challenge; each provider is slightly different but you soon get to recognize the relevant parts.
 
