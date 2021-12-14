@@ -410,6 +410,10 @@ One thing I wanted to fully explore was authorizing users, both with OAuth2 ("si
 
 Appwrite does an amazing job of making all of this very easy. In Appwrite server console, you just select which 3rd party providers you wish to support. You have to go to your own account with each provider and configure the referring application. This can be a challenge; each provider is slightly different but you soon get to recognize the relevant parts.
 
+15 of the 25 available providers:
+
+<img src='https://user-images.githubusercontent.com/285421/145910359-c913e999-3062-4899-85b5-e07d53d04fd9.png' width='600px'>
+
 It's at this stage you'll be grateful you don't have any non-standard ports for your Appwrite server installation. I think I managed to do this, but when anything went wrong, this was what I suspected first and so I decided that standard ports would just remove that as a possible issue. Now that I have everything working (well...), I may go back and see what's possible. Ideally I want a single host instance with multiple `https://` domains served on standard ports, for Appwrite and for the web app. 
 
 Once you have these set up, this is how you initiate a user session via an external provider:
