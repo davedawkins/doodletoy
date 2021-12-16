@@ -62,6 +62,11 @@ module UrlParser =
         |"create" -> External NewDoodle
         |"new" -> External NewDoodle
         |"profile" -> SetPage (Profile,"navigate")
+        |"view" ->
+            if query.ContainsKey("d") then
+                External (ViewDoodleId query.["d"])
+            else
+                SetPage (Home,"navigate")
         |"edit" ->
             if query.ContainsKey("d") then
                 External (EditDoodleId query.["d"])
@@ -151,6 +156,13 @@ let rec update (server : Server) (confirmed : bool) msg (model:Model) =
         | NewDoodle ->
             model, "" |> EditDoodleId |> External |> Cmd.ofMsg
 
+        | ViewDoodleId id ->
+            if (not (Fable.Core.JsInterop.isNullOrUndefined id)) then
+                server.IncrementViewCount(id) |> ignore
+
+            model,
+                Cmd.OfPromise.perform (server.GetCachedDoodle) id (fun doodle -> SetPage (View doodle, "ViewDoodleId"))
+
         | EditDoodleId id ->
             let current = Editor.Storage.get()
             match current, confirmed with
@@ -180,7 +192,6 @@ let rec update (server : Server) (confirmed : bool) msg (model:Model) =
 
                 model,
                     Cmd.OfPromise.perform getOrCreate id (fun doodle -> SetPage (Editor doodle, "EditDoodle"))
-                    //Cmd.ofMsg (SetPage (Editor (getOrCreate(id)), "EditDoodle"))
 
     | SetPage (p,who) ->
         { model with Page = p }, Cmd.none
@@ -204,6 +215,7 @@ let viewMain server (model : System.IObservable<Model>) dispatch =
         | _, Help -> Help.view server
         | _, Browse -> Browse.view server
         | _, Editor d -> Editor.view server m.Session d
+        | _, View d -> Home.View.view server d
         | Some session, Profile -> Profile.view  session server
         | None, Profile -> Verify.view false server
         | _, _ -> Login.view server

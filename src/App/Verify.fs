@@ -22,7 +22,7 @@ let update (server :Server) msg model =
     match msg with
     | SetStatus s -> { model with Status = s }, Cmd.none
     | SendEmail ->
-        model, Cmd.OfPromise.either (server.SendVerificationEmail) () (fun _ -> SetStatus "Email sent") Error
+        model, Cmd.OfPromise.either (server.SendVerificationEmail) () (fun _ -> SetStatus "Email sent - please allow at least 20 minutes") Error
     | Error x ->
         { model with Status = x.Message }, Cmd.none
 

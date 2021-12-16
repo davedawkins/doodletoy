@@ -8,6 +8,7 @@ open Sutil.DOM
 open Fetch
 open Fable.Formatting.Markdown
 open type Feliz.length
+open type Feliz.borderStyle
 
 let parsed md =
     try
@@ -39,10 +40,30 @@ let markdownStyle = [
         Css.whiteSpacePre
         Css.wordWrapNormal
     ]
+
+    rule "p>code,li>code" [
+        Css.fontFamily "monospace"
+        Css.border(px 1, solid, "#dddddd")
+        Css.backgroundColor("#ebf0f7")
+        Css.padding (px 1, px 4)
+        Css.borderRadius(px 4)
+    ]
+
     rule "pre>code" [
         Css.fontFamily "monospace"
     ]
+
+
+    rule "thead th" [
+        Css.borderBottom( px 1, solid, "#dddddd" )
+    ]
+
+    rule "th, td" [
+        Css.paddingLeft (rem 0.5)
+        Css.paddingRight (rem 0.5)
+    ]
 ]
+
 
 let fetchSource tab  =
     //let url = sprintf "%s%s" urlBase tab

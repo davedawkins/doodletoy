@@ -15,7 +15,7 @@ let appUrl = "https://doodletoy.net/"
 
 let private chatCollectionID = "617c11bb63b82"
 
-let private serviceUrl = "https://solochimp.com/v1"
+let private serviceUrl = "https://appwrite.doodletoy.net/v1"
 let private doodlesProjectID = "619bd8cd83fa8"
 let private doodlesCollectionID = "619bd92054698"
 let private likesCollectionId = "619bda17062c0"
@@ -23,7 +23,6 @@ let private viewsCollectionId = "619bda67c7d02"
 let private visitorEmail = "visitor@solochimp.com"
 let private adminTeamId = "619d6583db1da"
 let private configurationCollectionId = "619dfd44d6fb5"
-
 
 type ServerModel = {
     User : SessionUser option
@@ -51,7 +50,6 @@ type Server() =
         userOpt
 
     let filterVisitor (userOpt : User option) =
-        JS.console.log($"filterVisitor: {userOpt}")
         match userOpt with
         | Some u when u.email = "" || u.email = visitorEmail ->
             None
@@ -83,10 +81,13 @@ type Server() =
         let! userOrVisitor = promise {
             try
                 // We may already have an active session, so pick it up
-                return! (sdk.account.get() : JS.Promise<User>)
+                let! session = (sdk.account.get() : JS.Promise<User>)
+                //Fable.Core.JS.console.log(" - resume session: " + session.email)
+                return session
             with
             |x ->
                 let! session = sdk.account.createSession(visitorEmail, "doodletoy")
+                //Fable.Core.JS.console.log($" no session ({x.Message}) - create visitor session")
                 return! sdk.account.get()
         }
 
@@ -94,7 +95,8 @@ type Server() =
             try
                 do! sdk.teams.get( adminTeamId )
                 return true
-            with _ -> return false
+            with _ ->
+                return false
         }
 
         let! config = promise {
@@ -420,13 +422,8 @@ type DoodleSession(server : Server, user : User) =
                     modifiedOn = dateTimeNow
                     createdOn = if (doc.createdOn = 0.0 || isUndefined(doc.createdOn)) then dateTimeNow else doc.createdOn
             }
+
         server.UpdateCreate(data)
-        // server.Map( fun sdk ->
-        //     if String.IsNullOrEmpty(data._id) then
-        //         sdk.database.createDocument(doodlesCollectionID, data, [| "*" |] )
-        //     else
-        //         sdk.database.updateDocument(doodlesCollectionID,data._id,data, [| "*" |])
-        // )
 
     member _.UserDoodles () : JS.Promise<ListDocumentsResult<Doodle>> =
         server.UserDoodles(user._id)

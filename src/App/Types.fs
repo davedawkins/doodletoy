@@ -219,9 +219,12 @@ type Page =
     | Help
     | Editor of Schema.Doodle
     | Chat
+    | View of Schema.Doodle
+
 type ExternalMessage =
     | Verified of Result<string,string>
     | RegisteredNewAccount
     | RegisterNewAccount
     | NewDoodle
     | EditDoodleId of string
+    | ViewDoodleId of string

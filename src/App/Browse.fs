@@ -46,6 +46,7 @@ module DoodleView =
     type Options = {
         Animation : AnimationMode
         SizePx : int
+        ShowFooter : bool
     }
 
     type private Model = {
@@ -87,6 +88,9 @@ module DoodleView =
 
         Media.MinWidth( UI.BreakPoint, [
             rule ".doodle-card" [
+                Css.width (vh 75)
+            ]
+            rule ".doodle-card.sizepx" [
                 Css.width (px options.SizePx)
             ]
         ])
@@ -120,7 +124,8 @@ module DoodleView =
 
         if options.Animation = Always then startAnimate()
 
-        UI.divc "doodle-card" [
+        let sizeClass = if options.SizePx > 0 then " sizepx" else ""
+        UI.divc ("doodle-card" + sizeClass) [
 
             unsubscribeOnUnmount [ stopAnimate ]
             disposeOnUnmount [ drawingS ]
@@ -134,68 +139,69 @@ module DoodleView =
                     Ev.onMouseLeave (fun _ -> stopAnimate())
             ]
 
-            UI.divc "doodle-details" [
-                UI.flexColumn [
-                    Attr.style [
-                        Css.flexGrow 1
-                    ]
-                    Html.span m.Doodle.name
-                    Html.span (sprintf "by %s" m.Doodle.ownedByName)
-                ]
-                Bind.el(server.State, fun state ->
-                    let isAdmin = state.User |> Option.map (fun u -> u.IsAdmin) |> Option.defaultValue false
-                    let isFeatured = state.Configuration.featured = m.Doodle._id
-
-                    if isFeatured || isAdmin then
-                        let canSelect = not isFeatured
-                        Html.div [
-                            Html.i [
-                                Attr.classes [
-                                    "fa"
-                                    match isFeatured with true->"fa-star"|false->"fa-star-o"
-                                ]
-                                if canSelect then
-                                    yield! [
-                                        Attr.style [ Css.cursorPointer ]
-                                        Ev.onClick (fun _ -> server.SetFeatured(m.Doodle) |> ignore )
-                                    ]
-                            ]
-                        ]
-                    else
-                        fragment [ ]
-
-                )
-                Html.div [
-                    fa "eye" []
-                    m.View
-                    |> Option.map (fun v ->
-                        text (sprintf " %d" (v.Views |> Array.fold (fun n v -> n + int(v.numViews)) 0))
-                    )
-                    |> Option.defaultValue (text " 0")
-                ]
-                Html.div [
-                    let heartIcon =
-                        match m.View |> Option.bind(fun v -> v.MyLike) with
-                        |None ->
-                            "heart-o"
-                        |Some like ->
-                            "heart"
-
-                    fa heartIcon [
+            if options.ShowFooter then
+                UI.divc "doodle-details" [
+                    UI.flexColumn [
                         Attr.style [
-                            Css.cursorPointer
+                            Css.flexGrow 1
                         ]
-                        Ev.onClick (fun _ -> dispatch ToggleLike)
+                        Html.span m.Doodle.name
+                        Html.span (sprintf "by %s" m.Doodle.ownedByName)
                     ]
+                    Bind.el(server.State, fun state ->
+                        let isAdmin = state.User |> Option.map (fun u -> u.IsAdmin) |> Option.defaultValue false
+                        let isFeatured = state.Configuration.featured = m.Doodle._id
 
-                    m.View
-                    |> Option.map (fun v ->
-                        text (sprintf " %d" v.Likes.Length)
+                        if isFeatured || isAdmin then
+                            let canSelect = not isFeatured
+                            Html.div [
+                                Html.i [
+                                    Attr.classes [
+                                        "fa"
+                                        match isFeatured with true->"fa-star"|false->"fa-star-o"
+                                    ]
+                                    if canSelect then
+                                        yield! [
+                                            Attr.style [ Css.cursorPointer ]
+                                            Ev.onClick (fun _ -> server.SetFeatured(m.Doodle) |> ignore )
+                                        ]
+                                ]
+                            ]
+                        else
+                            fragment [ ]
+
                     )
-                    |> Option.defaultValue (text " 0")
+                    Html.div [
+                        fa "eye" []
+                        m.View
+                        |> Option.map (fun v ->
+                            text (sprintf " %d" (v.Views |> Array.fold (fun n v -> n + int(v.numViews)) 0))
+                        )
+                        |> Option.defaultValue (text " 0")
+                    ]
+                    Html.div [
+                        let heartIcon =
+                            match m.View |> Option.bind(fun v -> v.MyLike) with
+                            |None ->
+                                "heart-o"
+                            |Some like ->
+                                "heart"
+
+                        fa heartIcon [
+                            Attr.style [
+                                Css.cursorPointer
+                            ]
+                            Ev.onClick (fun _ -> dispatch ToggleLike)
+                        ]
+
+                        m.View
+                        |> Option.map (fun v ->
+                            text (sprintf " %d" v.Likes.Length)
+                        )
+                        |> Option.defaultValue (text " 0")
+                    ]
                 ]
             ]
-        ]
 
     let view server (options : Options) (doodle : Schema.Doodle) =
         let model, dispatch = doodle |> Store.makeElmish (init server) (update server) ignore
@@ -230,6 +236,7 @@ let view (server : Server) =
     let options = {
         Animation = Hover
         SizePx = 250
+        ShowFooter = true
     }
 
     Html.div [

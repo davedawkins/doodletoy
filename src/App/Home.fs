@@ -136,6 +136,33 @@ let style = [
         Css.marginTop (rem 0.5)
         Css.marginBottom (rem 0.5)
     ]
+
+    rule ".contact" [
+        Css.marginTop (rem 2)
+    ]
+    rule ".contact>div" [
+        Css.gap (rem 2)
+    ]
+    rule ".fa-twitter" [
+        Css.color "rgb(71, 155, 233)"
+        Css.fontSize (percent 150)
+    ]
+    rule ".fa-github" [
+        Css.color "black"
+        Css.fontSize (percent 150)
+    ]
+
+    rule ".view a" [
+        Css.marginLeft auto
+    ]
+    rule ".view i" [
+        Css.fontSize (percent 100)
+    ]
+    Media.MinWidth(UI.BreakPoint, [
+        rule ".view" [
+            Css.width (vh 75)
+        ]
+    ])
 ]
 
 open Browse.DoodleView
@@ -156,7 +183,7 @@ let view (server : Server) =
             UI.divc "featured-container" [
                 Html.h2 "Featured Doodle"
                 Bind.el( model |> Store.map (fun m -> m.Featured), fun doodleOpt ->
-                    let options = { Animation = Always; SizePx = 400 }
+                    let options = { Animation = Always; SizePx = 400; ShowFooter = true }
                     match doodleOpt with
                     | Some doodle ->
                         Browse.DoodleView.view server options doodle
@@ -182,11 +209,72 @@ let view (server : Server) =
                 ]
                 Html.p [
                     Html.a [ Attr.href "#signin"; text "Sign in" ]
-                    text " so that you can save your Doodles and share them for others to see, like and modify"
+                    text " so that you can save your doodles and share them for others to see, like and modify"
+                ]
+
+                UI.divc "contact" [
+                    UI.flexRow [
+                        Html.a [ // 71, 155, 233
+                            Attr.href "https://twitter.com/DaveDawkins"
+                            Html.i [ Attr.className "fa fa-twitter" ]
+                        ]
+                        Html.a [
+                            Attr.href "https://github.com/davedawkins/sutil-template-appwrite"
+                            Html.i [ Attr.className "fa fa-github" ]
+                        ]
+                    ]
                 ]
             ]
         ]
 
-        //Documentation.ReferenceDocs.overview()
-
     ] |> withStyle style
+
+
+let shareToTwitter( doodle : Schema.Doodle ) =
+    let w = Browser.Dom.window
+    let url = w.location.href
+    let text = "Check my doodle out!\n"
+    Browser.Dom.window.``open``(
+        "https://twitter.com/share?url="+w.encodeURIComponent(url)+"&text="+w.encodeURIComponent(text),
+        "",
+        "left=0,top=0,width=550,height=450,personalbar=0,toolbar=0,scrollbars=0,resizable=0") |> ignore
+    ()
+
+module View =
+    let view (server : Server) (doodle : Schema.Doodle)=
+        let model, dispatch = server |> Store.makeElmish init (update server) ignore
+
+        let unsub = (server.State |> Store.map ( fun s -> s.Configuration.featured)).Subscribe( fun f ->
+            match f with
+            | "" -> ()
+            | id -> id |> GetFeatured |> dispatch
+        )
+        let options = { Animation = Always; SizePx = 0; ShowFooter = false }
+
+        UI.divc "view" [
+            Attr.style [
+            ]
+            disposeOnUnmount [ unsub ]
+
+            Html.h2 doodle.name
+            UI.flexRow [
+                Attr.style [
+                    Css.marginBottom (rem 0.5)
+                ]
+                Html.span ("by " + doodle.ownedByName)
+                Html.a [
+                    Attr.style [
+                        Css.marginLeft auto
+                        Css.fontSize (percent 100)
+                    ]
+                    Attr.href "#"
+
+                    Ev.onClick (fun e -> e.preventDefault(); shareToTwitter doodle)
+
+                    Html.i [ Attr.className "fa fa-twitter" ]
+                    text " Share"
+                ]
+            ]
+            Browse.DoodleView.view server options doodle
+
+        ] |> withStyle style

@@ -52,8 +52,8 @@ module Storage =
     let setDoodles( map : obj ) =
         localStorage.setItem("doodles", JSON.stringify map)
 
-        Fable.Core.JS.console.log("== Doodles ==")
-        Fable.Core.JS.console.dir(getDoodles())
+        // Fable.Core.JS.console.log("== Doodles ==")
+        // Fable.Core.JS.console.dir(getDoodles())
 
     let load( id : string ) : Schema.Doodle option =
         let id' = safeId id
@@ -258,7 +258,7 @@ let style = [
         Css.padding (rem 1)
         Css.fontFamily "Consolas, monospace"
         Css.fontSize (pt 10)
-
+        Css.custom("tab-size", "4")
         Css.flexGrow 1
         Css.flexShrink 1
         Css.height (px 710)
@@ -272,8 +272,6 @@ let style = [
         ]
     ])
 ]
-
-Fable.Core.JS.console.log("Px 1000=" + (string (px 1000)) )
 
 let drawingCanvas items props =
     DrawingCanvas items props
@@ -297,9 +295,21 @@ let doodleCanvasContainer (dispatch : (float*float) -> unit) doodle =
             ]
         ] {
             Drawing = doodle
-            //Redraw = ignore
             OnMouseMove = Some dispatch }
     ]
+
+let supportInsertTab dispatch (e : Browser.Types.KeyboardEvent) =
+    if e.key = "Tab" && not e.ctrlKey then
+        let el = e.target :?> Browser.Types.HTMLTextAreaElement
+        e.preventDefault()
+        let value, selstart, selend = el.value, el.selectionStart, el.selectionEnd
+
+        // set textarea value to: text before caret + tab + text after caret
+        dispatch (SetSource  (value.Substring(0, selstart) + "\t" + value.Substring(selend)))
+
+        // put caret at right position again
+        el.selectionStart <- selstart + 1
+        el.selectionEnd <- selstart + 1
 
 let _view (session : DoodleSession option) model dispatch =
     let mutable mx = 0.0
@@ -316,12 +326,6 @@ let _view (session : DoodleSession option) model dispatch =
 
     // Details | TextArea
     UI.divc "editor-container" [
-
-        // Attr.style [
-        //     Css.justifyContentSpaceBetween
-        //     Css.gap (rem 4)
-        //     Css.custom("align-items", "start")
-        // ]
 
         // Doodle
         // Name+Description+Buttons
@@ -372,12 +376,29 @@ let _view (session : DoodleSession option) model dispatch =
                                 text "Discard Changes"
                                 Ev.onClick (fun _ -> _log("discard"); dispatch Discard)
                             ]
+                        else
+                            Html.button [
+                                text ("Share")
+                                Ev.onClick (fun _ -> Browser.Dom.window.location.href <- "#view?d=" + doodle._id)
+                            ]
                 ])
+            else
+                UI.flexRow [
+                    Html.p [
+                        Attr.className "suggest-signin"
+                        Html.a [
+                            Attr.href "#signin"
+                            text "Sign in"
+                        ]
+                        text " to be able to save your doodles!"
+                    ]
+                ]
         ]
 
         Html.textarea [
             Attr.className  "doodle-editor"
             Bind.attr("value", model .> (fun m -> m.Doodle.source), dispatch << SetSource)
+            Ev.onKeyDown (supportInsertTab dispatch)
         ]
     ] |> withStyle style
 
