@@ -36,9 +36,9 @@ The app is served from https://doodletoy.net, and is written in F# using [Fable]
 
 <img src='https://user-images.githubusercontent.com/285421/145900924-2fd652cc-d02e-4d20-95ae-371f79195981.png' width='600px'>
 
-I used [ts2fable](https://fable.io/ts2fable) to create the F# bindings, and then hand-modified them. My intention is to release the bindings as nuget package Fable.Appwrite. While working on the bindings, I was able to contribute back some enhancements to ts2fable which you can see as the new option checkboxes on the [website](https://fable.io/ts2fable).
+The F# bindings for Appwrite were created mostly with ts2fable. More on this later.
 
-The backend for the app is an Appwrite server instance hosted on a [Linode](https://www.linode.com) server. I am very impressed with how easy it was to get this up and running. I had a few teething problems with setting up email and a few other things, but searching github, Google and the Appwrite Discord server solved everything. They're a very helpful bunch over on Discord.
+The backend for the app is an Appwrite server instance hosted on a [Linode](https://www.linode.com) server. 
 
 The rest of this article is talks about the development of doodletoy with emphasis on the Appwrite interface. I'm not going to be too upset if you just want to go and make pretty pictures. I would be thrilled to see people signing in to create doodles of their own. Maybe come back later to read the rest of the article. 
 
@@ -457,7 +457,6 @@ Here are some outstanding issues with doodletoy's session management:
 
 - I really wanted Twitter as a provider - you're probably reading this via a Tweet, and I wanted it to be super-easy for you to log in and save your Doodle.
 - "Forgotten password" is not yet implemented
-- For some reason, Oauth2.0 is not working on mobile for me. I may get this fixed before the article goes out, but if you're reading this, then I didn't :-(
 
 It seems that Twitter isn't (yet?) supported as a provider. Hopefully soon.
 
@@ -479,9 +478,11 @@ Casual visitors may edit a doodle and then decide they want to save it, and so d
 
 ## Doodle Language
 
-This has nothing to do with Appwrite! Doodles are what I used as a vehicle to study and learn Appwrite for this article, and for my own education. I forked a copy of `Fable.React.DrawingCanvas` from last year, which is one of my first forays into Fable. It included a simple turtle language, which I've brought into DoodleToy and heavily extended.
+This has nothing to do with Appwrite! Doodles are what I used as a vehicle to study and learn Appwrite for this article, and for my own education. I forked a copy of `Fable.React.DrawingCanvas` from last year, which is one of my first forays into Fable. It included a simple turtle language, which I've brought into DoodleToy and extended.  
 
-The language's purpose is to implement turtle graphics, and for this article, I had this idea that everyone who read the article could contribute their own, and we'd have this marvellous and motley collection of doodles as a visitor's gallery.  I knew there'd be some very clever people visiting who'd try clever stuff  and so I invested some time into adding enough language features to allow things like fractals to be drawn, and to allow a modicum of user input.
+The language's purpose is to implement turtle graphics, and it achieves this, but it isn't particularly elegant.
+
+For this article, I had this idea that everyone who read the article could contribute their own doodle, and we'd have this marvellous collection of doodles as a visitor's gallery.  I knew there'd be some very clever people visiting who'd try clever stuff and so I invested some time into adding enough language features to allow things like fractals to be drawn, and to allow a modicum of user input.
 
 The language parser is implemented with parser combinators, and I am endlessly fascinated with these things. I grew up with yacc and lex, and then eventually learned to write recursive descent parsers (in a progression of C -> C++ -> C#). RD parsing really demystified everything that yacc had done for me previously (though I believe yacc implements a different type of parser - LALR).
 
@@ -515,7 +516,32 @@ A couple of other quirks:
 
 - absolutely useless error messages from the parser. If your code doesn't compile, try adding brackets to expressions.
 
+- I'm using `:=` for assignment, and `=` for equality. This solved an ambiguity in the parser that I had at one point.
+
+- Reassigning variables is performed with `let`, as if the variable was being re-declared.
+
 I will address all these issues at some point. It's been interesting exploring the parsing issues resulting from my design choices.
+
+## Conclusion
+
+The intention was to take part in the F# Advent, and to learn about Appwrite. From that point of view, I'm very happy. 
+
+As a side-effect, we've ended up with DoodleToy, which turned out to be an excellent vehicle for learning how to implement these types of application, from both the front- and back-end perspective. 
+
+Appwrite has a rich, well-documented set of APIs. I'm very impressed with how easy it was to get up and running. Appwrite has a very helpful community on the Appwrite Discord server, and you can find a lot of answers on GitHub and Google too.
+
+Nearly all of the issues I encountered were configuration related. For example:
+
+- Email wouldn't send. This was because Linode requires that you enable outbound SMTP traffic. That took me a while to figure out.
+- Authentication wouldn't work on mobile. This was because I hadn't configured "Custom Domains" in the Appwrite server.
+- Authentication wouldn't work for github. I needed to give doodletoy permission to read Email addresses in its Application configuration.
+
+I still have work to do on the server:
+- Implement backups. There are guidelines for this, but I wish it was achievable from the UI console without having to write a script
+- Review the document permissions
+- Review the development-only settings - for example, you can tell Appwrite to disable request throttling during development. Remember to re-enable this for production!
+
+
 
 ## References
 
