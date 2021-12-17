@@ -281,7 +281,7 @@ The definition of `doodles` looks like this:
 
 <img src='https://user-images.githubusercontent.com/285421/145881566-91fd9507-b979-4a92-a5ed-0a2658b5101c.png' width='400px'>
 
-Note that I gave `Source` a type of `markdown`, instead `text`. If you edit a record by hand in the Appwrite console, the text input element seems to strip off the newlines, even if you didn't change that field. The editor used for `markdown` fields looks to be much more capable of handling newlines. It doesn't seem to affect the way the data is sent back and forth - I treat it as a `string`. Now that the UI is more developed, I haven't needed to edit a record in the Appwrite console, so this is a minor issue. 
+Note that I gave `Source` a type of `markdown`, instead `text`. If you edit a record by hand in the Appwrite console, the text input element seems to strip off the newlines, even if you didn't change that field. The editor used for `markdown` fields looks to be much more capable of handling newlines. It doesn't seem to affect the way the data is sent back and forth - I treat it as a `string`. Now that the UI is more developed, I haven't needed to edit a record in the Appwrite console, so this is a minor issue. (Update: making it type `markdown` didn't help).
 
 You can also see the schema as a JSON document (abbreviated):
 
@@ -458,7 +458,7 @@ Here are some outstanding issues with doodletoy's session management:
 - I really wanted Twitter as a provider - you're probably reading this via a Tweet, and I wanted it to be super-easy for you to log in and save your Doodle.
 - "Forgotten password" is not yet implemented
 
-It seems that Twitter isn't (yet?) supported as a provider. Hopefully soon.
+It seems that Twitter isn't (yet?) supported as a provider. Hopefully this is coming soon.
 
 The result:
 
@@ -541,7 +541,7 @@ I still have work to do on the server:
 - Review the document permissions
 - Review the development-only settings - for example, you can tell Appwrite to disable request throttling during development. Remember to re-enable this for production!
 
-
+For the front-end, Sutil worked great. I extended Sutil to support media queries in the component-level styling. This is a feature borrowed from Svelte, and I really like it. It means that each page effectively has its own style sheet (see use of `withStyle` in the source).
 
 ## References
 
