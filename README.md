@@ -28,9 +28,9 @@ I really enjoyed the breadth of fun topics this project brought me into contact 
 
 ## DoodleToy
 
-Having decided on Appwrite, I needed a more fully defined project. I decided to make use of some work I did about a year ago with turtle graphics (links), and turn it into the turtle equivalent of https://shadertoy.com. I had this idea that everyone who read the article could go and create their own doodle. This would require me to store documents, have user accounts, etc; all things that would be a good test of Appwrite, and something that connect the visitors.
+Having decided on Appwrite, I needed a more fully defined project. I decided to make use of some work I did about a year ago with [turtle graphics](https://github.com/davedawkins/Fable.React.DrawingCanvas), and turn it into the turtle equivalent of https://shadertoy.com. I had this idea that everyone who read the article could go and create their own doodle. This would require me to store documents, have user accounts, etc; all things that would be a good test of Appwrite, and in addition something has a social aspect.
 
-DoodleToy itself is an editor for generative art programs written in a custom turtle graphics language (based on my previous work, and heavily extended). You can create your own, and browser other people's doodles. To save doodles, you need to create an account. You can log in with Google, Github, Discord or register directly. 
+DoodleToy then is a web app written from scratch for this project, and is an editor and browser for generative art programs written in a custom turtle graphics language, called `doodles`. You can create your own doodles, and browse other people's. To save and share doodles to Twitter, you need to create an account. You can log in with Google, Github, Discord or register directly.
 
 The app is served from https://doodletoy.net, and is written in F# using [Fable](https://fable.io), [Sutil](https://sutil.dev) and the [Appwrite](https://appwrite.io) SDK. 
 
