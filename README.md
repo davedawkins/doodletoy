@@ -319,6 +319,8 @@ You can also see the schema as a JSON document (abbreviated):
 
 This would be an obvious starting point for a tool that can generate F# bindings such as the `Doodle` class above.
 
+It was tempting to store the number of views for a doodle on the `doodle` document, but this would have meant that user X clicking on a doodle owned by user Y would have required user X to have write permission for that doodle. My solution was to have a separate collection named `views`, that needs to be joined. In `Server.fs` DoodleView is used to join `doodles` with `views` and `likes`.
+
 ## Saving Documents
 
 Saving a doodle works like this:
