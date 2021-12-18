@@ -72,7 +72,7 @@ Appwrite server installs with a single command [link]. There is a small amount o
 
 ```
    +-----------------------+      +--------------------------+  
-   | https://doodletoy.net |      | https://solochimp.com    |
+   | https://doodletoy.net |      | https://myappwrite.net    |
    | Ports: 80 / 443       |      | Ports: 80 / 443          |
    | Linode instance       |      | Linode instance          |
    | Serves the web app    |      | Runs the Appwrite server |
@@ -85,7 +85,7 @@ I already had a [Linode](https://www.linode.com) instance and I decided to fire 
 
 If you use non-standard ports for Appwrite, you can use your nginx to do the routing, but then I suspect you'll get into problems with OAUTH2 redirection URLs - we use those to allow people to login via Google, Discord, Github etc.
 
-Once installed, you can then log into the Appwrite console, and configure your projects. The Appwrite instance on solochimp has a project
+Once installed, you can then log into the Appwrite console, and configure your projects. The Appwrite instance on `myappwrite.net` has a project
 named "doodletoy", and within this project are defined the documents, users, authentication methods and web platforms.
 
 While testing, I'd suggest disabling the rate limits, otherwise you'll be locked out from testing your login code after a few attempts. It's a neat feature, and I need to re-enable it for doodletoy!
@@ -498,7 +498,7 @@ let add2 := fun n -> n + 2
 let mul := fun x -> fun y -> x * y
 ```
 
-It wouldn't take much to add more syntax (parsers) that allows these constructs as macros for the curried forms shown above:
+The following forms are syntax macros for the forms above:
 
 ```fs
 let mul := fun x y -> x * y  
@@ -542,6 +542,10 @@ I still have work to do on the server:
 - Review the development-only settings - for example, you can tell Appwrite to disable request throttling during development. Remember to re-enable this for production!
 
 For the front-end, Sutil worked great. I extended Sutil to support media queries in the component-level styling. This is a feature borrowed from Svelte, and I really like it. It means that each page effectively has its own style sheet (see use of `withStyle` in the source).
+
+I have to mention how productive it is to be able to code front-end web apps with F#; [Fable](https://fable.io) + VSCode + [Ionide](https://ionide.io/) is a formidable set of tools that enable me to code in F# as if I was developing regular .NET applications on the desktop, or for a server platform. I frequently forget that this is all targeting JavaScript.
+
+The Appwrite bindings are now available as a `nuget` package, [Fable.Appwrite](https://www.nuget.org/packages/Fable.Appwrite).
 
 ## References
 
