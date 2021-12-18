@@ -1,12 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <UseLocalSutil>True</UseLocalSutil>
-    <DefineConstants>USE_SUTIL</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="UI.fs" />
-    <Compile Include="AppWriteSdk.fs" />
     <Compile Include="Examples.fs"/>
     <Compile Include="Types.fs" />
     <Compile Include="DrawingCanvas.fs" />
@@ -29,22 +26,8 @@
         <PackageReference Include="Fable.Date" Version="1.*" />
         <PackageReference Include="Fable.Fetch" Version="2.2.0" />
         <PackageReference Include="Fable.Formatting.Markdown" Version="1.0.1" />
-        <ProjectReference Include="..\..\..\Sutil\src\Sutil\Sutil.fsproj" />
-        <!-- <Package Reference Include="Sutil" Version="1.0.0-*" /> -->
+        <PackageReference Include="Fable.Appwrite" Version="1.0.1" />
+        <!-- <ProjectReference Include="..\..\..\Sutil\src\Sutil\Sutil.fsproj" /> -->
+        <PackageReference Include="Sutil" Version="1.0.0-beta-014" />
     </ItemGroup>
-
-    <!--
-  <Choose>
-    <When Condition=" '$(UseLocalSutil)'=='True' ">
-        <ItemGroup>
-            <ProjectReference Include="..\..\..\Sutil\src\Sutil\Sutil.fsproj" />
-        </ItemGroup>
-    </When>
-    <When Condition=" '$(UseLocalSutil)'=='False' ">
-        <ItemGroup>
-            <PackageReference Include="Sutil" Version="1.0.0-*" />
-        </ItemGroup>
-    </When>
-  </Choose>
-  -->
 </Project>

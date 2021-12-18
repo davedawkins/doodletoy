@@ -171,7 +171,7 @@ let rec update (server : Server) (confirmed : bool) msg (model:Model) =
             //model, Cmd.ofMsg (SetPage ((Editor (Schema.Doodle.Create())), "Resume"))
 
         | ViewDoodleId id ->
-            if (not (Fable.Core.JsInterop.isNullOrUndefined id)) then
+            if (Server.IsValidId id) then
                 server.IncrementViewCount(id) |> ignore
 
             model,
@@ -194,8 +194,8 @@ let rec update (server : Server) (confirmed : bool) msg (model:Model) =
                 model, [ confirm ]
             | _ ->
 
-                Fable.Core.JS.console.log("Edit Doodle confirmed '" + id + "'")
-                if (not (Fable.Core.JsInterop.isNullOrUndefined id)) then
+                //Fable.Core.JS.console.log("Edit Doodle confirmed '" + id + "'")
+                if (Server.IsValidId id) then
                     server.IncrementViewCount(id) |> ignore
 
                 let getOrCreate id =
@@ -205,7 +205,9 @@ let rec update (server : Server) (confirmed : bool) msg (model:Model) =
                         else
                             match Editor.Storage.get() with
                             | Some d when d._id = id -> return d
-                            | _  -> return! server.GetCachedDoodle(id)
+                            | _  ->
+                                let! view = server.GetCachedDoodle(id)
+                                return view.Doodle
                     }
 
                 model,

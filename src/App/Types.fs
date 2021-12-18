@@ -219,7 +219,7 @@ type Page =
     | Help
     | Editor of Schema.Doodle
     | Chat
-    | View of Schema.Doodle
+    | View of DoodleView
 
 type ExternalMessage =
     | Verified of Result<string,string>

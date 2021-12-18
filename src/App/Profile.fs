@@ -11,13 +11,13 @@ open type Feliz.borderStyle
 open Sutil.DOM
 
 type Model = {
-    Doodles : Schema.Doodle list
+    Doodles : DoodleView list
     ErrorMessage : string option
 }
 
 type Message =
     | GetDoodles
-    | GotDoodles of Schema.Doodle[]
+    | GotDoodles of DoodleView[]
     | Delete of Schema.Doodle
     | Deleted
     | Error of System.Exception
@@ -32,7 +32,6 @@ let init() =
     }, Cmd.ofMsg GetDoodles
 
 let update (session : DoodleSession) msg model =
-    Fable.Core.JS.console.log($"{msg}")
     match msg with
     | Delete d ->
         model, Cmd.OfPromise.either (session.Server.DeleteDoodle) (d._id) (always Deleted) Error
@@ -44,9 +43,8 @@ let update (session : DoodleSession) msg model =
         { model with ErrorMessage = s}, Cmd.none
     | GetDoodles ->
         model,
-        Cmd.OfPromise.result (session.UserDoodles() |> Promise.map (fun r -> r.documents |> GotDoodles))
+        Cmd.OfPromise.result (session.UserDoodles() |> Promise.map GotDoodles)
     | GotDoodles doodles ->
-        Fable.Core.JS.console.dir(doodles)
         { model with Doodles = doodles |> List.ofArray }, Cmd.none
 
 let style = [
@@ -131,14 +129,15 @@ let style = [
 let formatDT formatString (date : System.DateTime) = Date.Format.localFormat Date.Local.englishUK formatString date
 let asDateTime n = System.DateTime(int64(n) * System.TimeSpan.TicksPerSecond)
 
-let viewRecord (server : Server) (t : Schema.Doodle ) dispatch =
+let viewRecord (server : Server) (view : DoodleView ) dispatch =
     let span content (media : string) = Html.span  [ Attr.className (media); text content]
+    let t = view.Doodle
 
     fragment [
         Html.span [
             Attr.className "name"
             text t.name
-            Ev.onClick (fun _ -> EditDoodleId t._id |> server.Dispatch )
+            Ev.onClick (fun _ -> Browser.Dom.window.location.href <- "#edit?d=" + t._id)
         ]
         span t.description "if-wide"
         span (match t.isPrivate with true -> "Yes"|false -> "No")  "if-wide"
@@ -200,6 +199,5 @@ let view (session : DoodleSession) server =
                         viewRecord server d dispatch
                 ]
             )
-            //Bind.each( model |> Store.map (fun m -> m.Doodles), viewRecord dispatchExternal, (fun r -> r._id) )
         ]
     ] |> withStyle style

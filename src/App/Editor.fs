@@ -40,9 +40,9 @@ module Storage =
     let delete id map : unit = jsNative
 
     let safeId (id : string) =
-        match isNullOrUndefined (id) with
-        | true -> "_new_"
-        | false -> id
+        match Server.IsValidId id with
+        | false -> "_new_"
+        | true -> id
 
     let getDoodles() : obj =
         match localStorage.getItem("doodles") with
@@ -91,7 +91,7 @@ type Message =
     | Save
     | SaveAsNew
     | SaveLocal
-    | ClearLocal of string
+    | ClearLocal
     | Saved of Schema.Doodle
     | Error of Exception
     | Mouse of (float*float)
@@ -161,7 +161,6 @@ let init (doodle : Schema.Doodle) =
     [ fun d -> Fable.Core.JS.setInterval (fun _ -> d Tick) 40 |> ignore ]
 
 let update (server : Server) (session:DoodleSession option) msg (model : Model)=
-    //Fable.Core.JS.console.log($"{msg}")
     match msg with
     | Mouse (x,y) -> { model with Mouse = (x,y) }, Cmd.none
     | Init d ->
@@ -169,21 +168,20 @@ let update (server : Server) (session:DoodleSession option) msg (model : Model)=
     | Error x -> model, Cmd.none
     | Saved newDoodle ->
         let _cacheId = model.Doodle._id
-        //Fable.Core.JS.console.log($"ID after save is {d._id}")
         { model with Doodle = newDoodle; IsEdited = false },
             Cmd.batch [
-                Cmd.ofMsg (ClearLocal _cacheId)
+                Cmd.ofMsg (ClearLocal)
                 [(fun d -> if _cacheId <> newDoodle._id then Browser.Dom.window.location.href <- "#edit?d=" + newDoodle._id)]
                 ]
     | Discard ->
         let _cacheId = model.Doodle._id
         let cmd =
-            if Fable.Core.JsInterop.isNullOrUndefined model.Doodle._id then
+            if not(Server.IsValidId model.Doodle._id) then
                 Schema.Doodle.Create() |> Init |> Cmd.ofMsg
             else
                 let d = server.GetDoodle( model.Doodle._id )
                 Cmd.OfPromise.result (d |> Promise.map Init)
-        model, Cmd.batch [ cmd; Cmd.ofMsg SaveLocal; Cmd.ofMsg (ClearLocal _cacheId) ]
+        model, Cmd.batch [ cmd; Cmd.ofMsg SaveLocal; Cmd.ofMsg (ClearLocal) ]
     | Save ->
         match session with
         | Some s ->
@@ -200,7 +198,7 @@ let update (server : Server) (session:DoodleSession option) msg (model : Model)=
         { model with Doodle = { model.Doodle with description = s }; IsEdited = true }, Cmd.ofMsg SaveLocal
     | SetSource s ->
         { model with Doodle = { model.Doodle with source = s }; IsEdited = true }, Cmd.ofMsg SaveLocal
-    | ClearLocal id ->
+    | ClearLocal ->
         Storage.clear()
         model, Cmd.none
     | SaveLocal ->
@@ -352,9 +350,12 @@ let _view (session : DoodleSession option) model dispatch =
                     Bind.attr("value", model |> Store.map (fun m -> m.Doodle.description), dispatch<<SetDescription)
                 ]
             ]
+
             if not readonly then
 
                 Bind.el( model |> Store.map (fun m -> m.Doodle, m.IsEdited) |> Observable.distinctUntilChanged , fun (doodle,isEdited) ->
+                    let isNew = isNull(doodle._id)
+
                     UI.flexRow [
                         if isEdited then
                             Html.span "Doodle has been modified: "
@@ -368,7 +369,7 @@ let _view (session : DoodleSession option) model dispatch =
                             ]
 
                         Html.button [
-                            text ("Save as Copy")
+                            text (if isNew then "Save as New" else "Save as Copy")
                             Ev.onClick (fun _ -> dispatch SaveAsNew)
                         ]
 
@@ -377,7 +378,8 @@ let _view (session : DoodleSession option) model dispatch =
                                 text "Discard Changes"
                                 Ev.onClick (fun _ -> _log("discard"); dispatch Discard)
                             ]
-                        else
+
+                        if (not isEdited) && not(isNull(doodle._id)) then
                             Html.button [
                                 text ("Share")
                                 Ev.onClick (fun _ -> Browser.Dom.window.location.href <- "#view?d=" + doodle._id)

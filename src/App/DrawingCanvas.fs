@@ -368,8 +368,6 @@ let runDrawing (ctx : CanvasRenderingContext2D) drawing =
     //drawing |> (ctx |> runCommands (makeTurtle()))
     ctx.restore()
 
-#if USE_SUTIL
-
 type DrawingCanvasOptions = {
     Drawing : System.IObservable<DrawFunction>
     //Redraw : DrawFunction
@@ -412,8 +410,6 @@ let DrawingCanvas (props : seq<SutilElement>) (options : DrawingCanvasOptions) =
         | None -> fragment []
         | Some f -> Ev.onMouseMove (fun e -> onMouseMove f e)
     ]
-
-#endif
 
 module Builder =
     // https://stackoverflow.com/questions/23122639/how-do-i-write-a-computation-expression-builder-that-accumulates-a-value-and-als

@@ -32,7 +32,7 @@ type ServerModel = {
 type Server() =
     let mutable disposables : IDisposable list = []
     let mutable dispatch : (ExternalMessage -> unit) = ignore
-    let mutable doodlesById : Map<string,Doodle> = Map.empty
+    let mutable doodlesById : Map<string,DoodleView> = Map.empty
 
     let initModel() = {
         User = None
@@ -153,6 +153,9 @@ type Server() =
     let doodlesToMapPairs (doodles : Doodle array) =
         doodles |> Array.map (fun d -> d._id,d)
 
+    static member IsValidId (id : string) =
+        not(Fable.Core.JsInterop.isNullOrUndefined(id) || id = "")
+
     member _.State : IObservable<ServerModel> = upcast model
 
     member _.SessionUser = current().User
@@ -215,6 +218,7 @@ type Server() =
         }
 
     member x.IncrementViewCount( id : string ) =
+        Fable.Core.JS.console.log("Increment view count for '" + id + "'")
         promise {
             let! allViews = x.Views(id)
             do! if allViews.Length = 0 then
@@ -287,6 +291,14 @@ type Server() =
             return ()
         }
 
+    member _.AllLikes() : JS.Promise<Like[]>=
+        let likes = sdk.database.listDocuments( likesCollectionId ) : JS.Promise<ListDocumentsResult<Like>>
+        likes |> Promise.map (fun r -> r.documents)
+
+    member _.AllViews() : JS.Promise<Views[]> =
+        let views = sdk.database.listDocuments( viewsCollectionId ) : JS.Promise<ListDocumentsResult<Views>>
+        views |> Promise.map (fun r -> r.documents)
+
     member _.Likes( d : Doodle) =
         let likes = sdk.database.listDocuments( likesCollectionId, [| "doodleId=" + d._id |] ) : JS.Promise<ListDocumentsResult<Like>>
         likes |> Promise.map (fun r -> r.documents)
@@ -294,6 +306,21 @@ type Server() =
     member _.Views( id : string ) : JS.Promise<Views[]> =
         let views = sdk.database.listDocuments( viewsCollectionId, [| "doodleId=" + id |] ) : JS.Promise<ListDocumentsResult<Views>>
         views |> Promise.map (fun r -> r.documents)
+
+    member x.GetDoodleView( d: string ) : JS.Promise<DoodleView> =
+        promise {
+            let! doodle = x.GetDoodle(d)
+
+            return! x.GetDoodleView(doodle : Schema.Doodle)
+        }
+
+    member x.GetCachedDoodleView( d: Doodle ) =
+        promise {
+            if doodlesById.ContainsKey(d._id) then
+                return doodlesById.[d._id]
+            else
+                return! x.GetDoodleView(d)
+        }
 
     member x.GetDoodleView( d: Doodle ) =
         promise {
@@ -304,33 +331,31 @@ type Server() =
                 |> Option.map( fun u -> x.FindLike(d,u.User) )
                 |> Option.defaultWith (fun _ -> promise {return None})
 
-            return {
+            let view = {
                 Doodle = d
                 Likes = likes
                 Views = views
                 MyLike = myLike
                 IsFeatured = false
             }
+
+            doodlesById <- doodlesById.Add(d._id,view)
+
+            return view
         }
 
     member _.DeleteDoodle( id : string ) =
         sdk.database.deleteDocument(doodlesCollectionID,id)
 
     member _.GetDoodle( id : string ) =
-        promise {
-            let! d = sdk.database.getDocument(doodlesCollectionID,id) : JS.Promise<Doodle>
+        sdk.database.getDocument(doodlesCollectionID,id) : JS.Promise<Doodle>
 
-            doodlesById <- doodlesById.Add(d._id,d)
-
-            return d
-        }
-
-    member x.GetCachedDoodle( id : string ) : JS.Promise<Doodle> =
+    member x.GetCachedDoodle( id : string ) : JS.Promise<DoodleView> =
         promise {
             if doodlesById.ContainsKey(id) then
                 return doodlesById.[id]
             else
-                return! x.GetDoodle(id)
+                return! x.GetDoodleView(id)
         }
 
     member x.RefreshDoodleView( id : string ) =
@@ -342,38 +367,51 @@ type Server() =
     member x.AllDoodles() = promise {
             let! doodles = sdk.database.listDocuments(doodlesCollectionID) : JS.Promise<ListDocumentsResult<Doodle>>
 
-            doodlesById <- doodles.documents |> Array.map (fun d -> d._id,d) |> Map.ofArray
+            //doodlesById <- doodles.documents |> Array.map (fun d -> d._id,d) |> Map.ofArray
 
             return doodles.documents
     }
 
-    member _.UserDoodles ( id : string ) : JS.Promise<ListDocumentsResult<Doodle>> =
+    member x.UserDoodles ( id : string ) : JS.Promise<DoodleView array> =
         promise {
             let! doodles =
                 sdk.database.listDocuments(
                     doodlesCollectionID,
                     [| "ownedBy=" + id |]
-            )
+                ) : JS.Promise<ListDocumentsResult<Doodle>>
 
-            doodlesById <-
-                doodlesById
-                |> Map.toArray
-                |> Array.append (doodlesToMapPairs (doodles.documents))
-                |> Map.ofArray
-
-            return doodles
+            let! result = doodles.documents |> Array.map x.GetCachedDoodleView |> Promise.all
+            return result
         }
 
     member x.AllDoodleViews() = promise {
             let! doodles = x.AllDoodles()
-            let! dvs =
+
+            let! likes = x.AllLikes()
+
+            let! views = x.AllViews()
+
+            let likeMap = likes |> Array.groupBy (fun like -> like.doodleId) |> Map.ofArray
+            let viewsMap = views |> Array.groupBy (fun like -> like.doodleId) |> Map.ofArray
+
+            let createView d =
+                {
+                    Doodle = d
+                    Likes = if likeMap.ContainsKey(d._id) then likeMap.[d._id] else [| |]
+                    Views = if viewsMap.ContainsKey(d._id) then viewsMap.[d._id] else [| |]
+                    MyLike = None
+                    IsFeatured = false
+                }
+
+            let dvs =
                 doodles
-                |> Array.map x.GetDoodleView
-                |> Promise.all
+                |> Array.map createView
+                //|> Promise.all
+
             return dvs
     }
 
-    member _.UpdateCreate( d : Doodle ) : JS.Promise<Doodle> =
+    member x.UpdateCreate( d : Doodle ) : JS.Promise<Doodle> =
         promise {
             let! saved =
                 if String.IsNullOrEmpty(d._id) then
@@ -381,7 +419,8 @@ type Server() =
                 else
                     sdk.database.updateDocument(doodlesCollectionID,d._id,d, [| "*" |]) : JS.Promise<Doodle>
 
-            doodlesById <- doodlesById.Add(saved._id, saved)
+            let! view = x.GetCachedDoodle(saved._id)
+            doodlesById <- doodlesById.Add(saved._id, { view with Doodle = saved })
 
             return saved
         }
@@ -428,7 +467,7 @@ type DoodleSession(server : Server, user : User) =
 
         server.UpdateCreate(data)
 
-    member _.UserDoodles () : JS.Promise<ListDocumentsResult<Doodle>> =
+    member _.UserDoodles () : JS.Promise<DoodleView array> =
         server.UserDoodles(user._id)
 
     member this.Unlike (t : Doodle) =

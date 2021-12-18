@@ -12,11 +12,11 @@ open AppwriteSdk
 
 type Model =
     {
-        Featured : Schema.Doodle option
+        Featured : DoodleView option
     }
 type Message =
     | GetFeatured of string
-    | SetFeatured of Schema.Doodle option
+    | SetFeatured of DoodleView option
     | External of ExternalMessage
 
 let init (server : Server) =
@@ -31,7 +31,7 @@ let update (server : Server) msg model =
         { model with Featured = d}, Cmd.none
     | GetFeatured id->
         model,
-        Cmd.OfPromise.result (server.GetDoodle(id) |> Promise.map (fun r -> r |> (SetFeatured << Some)))
+        Cmd.OfPromise.result (server.GetDoodleView(id) |> Promise.map (fun r -> r |> (SetFeatured << Some)))
 
 
 let style = [
@@ -258,8 +258,9 @@ let shareToTwitter( doodle : Schema.Doodle ) =
     ()
 
 module View =
-    let view (server : Server) (doodle : Schema.Doodle)=
+    let view (server : Server) (doodleView : DoodleView)=
         let model, dispatch = server |> Store.makeElmish init (update server) ignore
+        let doodle = doodleView.Doodle
 
         let unsub = (server.State |> Store.map ( fun s -> s.Configuration.featured)).Subscribe( fun f ->
             match f with
@@ -292,6 +293,6 @@ module View =
                     text " Share"
                 ]
             ]
-            Browse.DoodleView.view server options doodle
+            Browse.DoodleView.view server options doodleView
 
         ] |> withStyle style
