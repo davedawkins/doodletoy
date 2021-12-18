@@ -230,12 +230,12 @@ let view (server : Server) =
                     ]
                     Html.p [
                         Html.a [
-                            Attr.href "https://github.com/davedawkins/sutil-template-appwrite"
+                            Attr.href "https://github.com/davedawkins/doodletoy"
                             Html.i [ Attr.className "fa fa-github" ]
                         ]
                         text "Find source code and log issues on "
                         Html.a [
-                            Attr.href "https://github.com/davedawkins/sutil-template-appwrite"
+                            Attr.href "https://github.com/davedawkins/doodletoy"
                             text "Github"
                         ]
                     ]
