@@ -392,6 +392,9 @@ type Server() =
     member _.Map<'T>( f : Appwrite -> 'T ) =
         sdk |> f
 
+    static member DateTimeNow =
+        Math.Truncate(double(DateTime.UtcNow.Ticks) / double(TimeSpan.TicksPerSecond))
+
     interface IDisposable with
         member _.Dispose() = dispose()
 
@@ -411,7 +414,7 @@ type DoodleSession(server : Server, user : User) =
         this.Save( { doc with ``$id`` = jsUndefined :?> string } )
 
     member _.Save( doc : Types.Schema.Doodle ) : JS.Promise<Schema.Doodle> =
-        let dateTimeNow = Math.Truncate(double(DateTime.UtcNow.Ticks) / double(TimeSpan.TicksPerSecond))
+        //let dateTimeNow = Math.Truncate(double(DateTime.UtcNow.Ticks) / double(TimeSpan.TicksPerSecond))
         let isUndefined x = (x :> obj) = (None :> obj)
         let data =
             {  doc
@@ -419,8 +422,8 @@ type DoodleSession(server : Server, user : User) =
                     ``$id`` = if doc.ownedBy = user._id then doc._id else (jsUndefined :?> string)
                     ownedBy = user._id
                     ownedByName = user.name
-                    modifiedOn = dateTimeNow
-                    createdOn = if (doc.createdOn = 0.0 || isUndefined(doc.createdOn)) then dateTimeNow else doc.createdOn
+                    modifiedOn = Server.DateTimeNow
+                    createdOn = if (doc.createdOn = 0.0 || isUndefined(doc.createdOn)) then Server.DateTimeNow else doc.createdOn
             }
 
         server.UpdateCreate(data)

@@ -62,6 +62,15 @@ let markdownStyle = [
         Css.paddingLeft (rem 0.5)
         Css.paddingRight (rem 0.5)
     ]
+
+    rule "h1,h2,h3,h4,h5,h6,ul" [
+        Css.marginTop (rem 1)
+    ]
+
+    rule "li,p" [
+        Css.marginTop (rem 0.5)
+    ]
+
 ]
 
 

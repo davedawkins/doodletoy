@@ -62,12 +62,12 @@ module Storage =
         | false -> None
         | true -> map?(id') |> Some
 
-    let clear (id : string) : unit =
+    let clear () : unit =
         setDoodles {| |}
 
     let save (d : Schema.Doodle) =
         let map = {| |}
-        map?current <- d
+        map?current <- { d with modifiedOn = Server.DateTimeNow }
         setDoodles map
 
     let get() : Schema.Doodle option =
@@ -144,15 +144,16 @@ let init (doodle : Schema.Doodle) =
         with x ->
             Fable.Core.JS.console.log(x.Message)
             None
-    let doodle', edited' =
+
+    let edited' =
         match backup with
-        | Some d when d._id = doodle._id && d.modifiedOn = doodle.modifiedOn -> d, true
-        | _ -> doodle, false
+        | Some d when d._id = doodle._id -> true
+        | _ -> false
 
     {
         TickCount = 0
         IsEdited = edited'
-        Doodle = doodle'
+        Doodle = doodle
         Mouse = (0.0,0.0)
         AnimationEnabled = false
     },
@@ -200,7 +201,7 @@ let update (server : Server) (session:DoodleSession option) msg (model : Model)=
     | SetSource s ->
         { model with Doodle = { model.Doodle with source = s }; IsEdited = true }, Cmd.ofMsg SaveLocal
     | ClearLocal id ->
-        Storage.clear id
+        Storage.clear()
         model, Cmd.none
     | SaveLocal ->
         Storage.save model.Doodle

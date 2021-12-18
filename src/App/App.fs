@@ -61,6 +61,7 @@ module UrlParser =
         match hash with
         |"create" -> External NewDoodle
         |"new" -> External NewDoodle
+        |"resume" -> External ResumeDoodle
         |"profile" -> SetPage (Profile,"navigate")
         |"view" ->
             if query.ContainsKey("d") then
@@ -156,6 +157,19 @@ let rec update (server : Server) (confirmed : bool) msg (model:Model) =
         | NewDoodle ->
             model, "" |> EditDoodleId |> External |> Cmd.ofMsg
 
+        | ResumeDoodle ->
+
+            match Editor.Storage.get() with
+            | Some d ->
+                if isNull(d._id) then // We were editing a new doodle
+                    model, Cmd.ofMsg (SetPage ((Editor d), "Resume"))
+                else  // we were editing an existing doodle
+                    model, [ fun _ -> Browser.Dom.window.location.href <- "#edit?d=" + d._id ]
+            | None ->
+                    model, Cmd.ofMsg (SetPage ((Editor (Schema.Doodle.Create())), "Resume"))
+
+            //model, Cmd.ofMsg (SetPage ((Editor (Schema.Doodle.Create())), "Resume"))
+
         | ViewDoodleId id ->
             if (not (Fable.Core.JsInterop.isNullOrUndefined id)) then
                 server.IncrementViewCount(id) |> ignore
@@ -172,13 +186,15 @@ let rec update (server : Server) (confirmed : bool) msg (model:Model) =
                         Content = fun close ->
                             Html.div ("You have unsaved edits for " + d.name)
                         Buttons = [
-                            ("Resume", fun close -> close(); dispatch (Confirmed (External (EditDoodleId d._id))))
-                            ("Discard", fun close -> close(); dispatch (Confirmed msg))
-                            ("Cancel", fun close -> close())
+                            ("Resume", fun close -> close(); Browser.Dom.window.location.href <- "#resume")
+                            ("Discard", fun close -> close(); Editor.Storage.clear(); dispatch (Confirmed msg))
+                            ("Cancel", fun close -> close(); Browser.Dom.window.location.href <- "#home")
                         ]
                     } |> UI.modal
                 model, [ confirm ]
             | _ ->
+
+                Fable.Core.JS.console.log("Edit Doodle confirmed '" + id + "'")
                 if (not (Fable.Core.JsInterop.isNullOrUndefined id)) then
                     server.IncrementViewCount(id) |> ignore
 
@@ -187,7 +203,9 @@ let rec update (server : Server) (confirmed : bool) msg (model:Model) =
                         if id = "" then
                             return Schema.Doodle.Create()
                         else
-                            return! server.GetCachedDoodle(id)
+                            match Editor.Storage.get() with
+                            | Some d when d._id = id -> return d
+                            | _  -> return! server.GetCachedDoodle(id)
                     }
 
                 model,

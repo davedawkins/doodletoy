@@ -6,7 +6,9 @@ Each doodle is a turtle graphics program. Some basic commands:
 - `penDown` to draw the turtle's path
 - `penUp` to move the turtle without drawing anything
 
-The space is 1000 x 1000 units, and the turtle starts at the center. So `forward 500` will move from the center to the outside edge on the right
+The space is 1000 x 1000 units, and the turtle starts at the center. So `forward 500` will move from the center to the outside edge on the right.
+
+Drawing a square:
 
 ```penDown
 forward 100
@@ -19,7 +21,7 @@ forward 100
 ```
 # Editing and Saving
 
-As you type into the editor, your program will be compiled and run. This means frequently you'll error messages
+As you type into the editor, your program will be compiled and run. This means frequently you'll see error messages
 until you have finished.
 
 If you are signed in you can either:
@@ -126,32 +128,33 @@ Doodle language has the following built-in variables:
 
 | Name       | Description |
 |------------+-------------|
-| `t`          | Floating point time in seconds |
-| `mx`         | Mouse X position in range [ -500, 500 ] |
-| `my`         | Mouse Y position in range [ -500, 500 ] |
+| `t`        | Floating point time in seconds |
+| `pi`       | Mathematical constant PI |
+| `mx`       | Mouse X position in range [ -500, 500 ] |
+| `my`       | Mouse Y position in range [ -500, 500 ] |
 
 # Built-in Arithmetic Operators
 
 
 | Name       | Description |
 |------------+-------------|
-| `a + b` |   |
-| `a - b` |   |
-| `a * b` |   |
-| `a / b` |   |
-| `a % b` |   |
+| `a + b` |  Addition |
+| `a - b` |  Subtraction  |
+| `a * b` |  Multiplication |
+| `a / b` |  Division |
+| `a % b` |  Modulo |
 
 # Built-in Comparison Operators
 
 
 | Name       | Description |
 |------------+-------------|
-| `a = b`  |   |
-| `a <> b` |   |
-| `a < b`  |   |
-| `a <= b` |   |
-| `a > b`  |   |
-| `a >= b` |   |
+| `a = b`    |  True if a equal to b |
+| `a <> b`   |  True if a not equal to b |
+| `a < b`    |  True if a less than b |
+| `a <= b`   |  True if a less than or equal to b |
+| `a > b`    |  True if a greater than b |
+| `a >= b`   |  True if a greater than or equal to b |
 
 # Built-in Functions
 
@@ -161,66 +164,136 @@ Doodle language has the following built-in functions:
 |--------------+-------------|
 | `truncate x` | Calculate integral part of floating point number |
 | `frac x`     | Calculate decimal part of floating point number   |
-| `sin x`      | Sine   |
-| `cos x`      | Cosine   |
-| `tan x`      | Tangent   |
+| `sin x`      | Sine of `x : radians`   |
+| `cos x`      | Cosine of `x : radians`  |
+| `tan x`      | Tangent of `x : radians`  |
 | `asin x`     | Inverse sine   |
 | `acos x`     | Inverse cosine   |
 | `atan x`     | Inverse tangent   |
+| `rad d`      | Convert `d : degrees` to `radians`   |
+| `deg r`      | Convert `r : radians` to `degrees`   |
 | `abs x`      | Absolute value   |
 | `sign x`     | A number that indicates the sign of the number (-1, 0, 1)   |
 | `round x`    | Round to nearest integer   |
 | `sqrt x`     | Square root   |
 
-# Defining functions
+# Defining Functions
 
-Doodle language currently has a very simple function mechanism.
-
-- Every function takes a single argument
-- Create functions with multiple arguments by nesting their definitions
-- Create re-usable functions by assigning them to variable.
-
-For example:
+Define functions like this:
 
 ```
-let add2 := fun n -> n + 2
+let add a b := a + b
+let neg n := n * -1
 ```
 
-This creates the function `fun n -> n + 2`. Its argument is named `n` and its value is `n + 2`.
-
-The function is assigned to variable `add2`.
-
-We can now do this:
+Use functions as if they were built in (like sin, for example):
 
 ```
-forward add2 100
+forward add 100 50
+forward neg 100
 ```
 
-which will move the pen forward by 102 units.
-
-Here's another example:
+Functions can also be commands:
 
 ```
-let forwardW := fun d -> fun w -> {
-    penWidth w
-    forward d
+let fwd n := {
+    forward n
+}
+
+let tfwd a n := {
+    turn a
+    forward n
 }
 ```
 
-Here we have defined two functions, one inside the other, and assigned the outer one to `forwardW`.
-
-We can think of this as being a way to pass two arguments to single function like this:
+Again, use these functions as if they were built-in:
 
 ```
-forwardW 100 10
-forwardW 100 20
+fwd 100
+tfwd 90 100
 ```
 
-This will draw two lines of length 100 with lengths 10 and 20 respectively.
+# Advanced Functions
+
+Consider the following function definition
+
+```
+let tfwd a n := {
+    turn a
+    forward a
+}
+```
+
+This is a macro that the parser converts into:
+
+```
+let tfwd := fun a -> fun n -> {
+    turn a
+    forward n
+}
+```
+
+This shows us that `fun x -> <expr>` is just an expression, evaluating to a lambda function.
+
+We can also see multiple argument functions are made by nesting one function inside another function (currying).
+
+With this knowledge, we can do things like this:
+
+```
+clear "#202020"
+penDown
+penHue frac (t / 10)
+
+let fwd d := {
+	forward d
+}
+
+let bwd d := {
+	forward (0 - d)
+}
+
+let seq move distance angle := {
+	move distance
+	turn angle
+}
+
+let d := 1
+repeat 8 {
+	seq (bwd) (d * 100) 90
+   	let d := d + 1
+}
+```
+
+Here we've defined `seq` as a higher-order function, and we can pass it either `fwd` or `bwd` as its `move` command.
+
+We can also partially apply curried functions:
+
+```
+clear "#202020"
+penDown
+penHue frac (t / 10)
+
+let moveWithTurn angle distance := {
+    turn angle
+    forward distance
+}
+
+let drawing mv := {
+    repeat 4 {
+        mv 100
+    }
+}
+
+drawing (moveWithTurn 45)
+```
+
+Note how `drawing` is defined as 4 iterations of a `mv 100` operation. When we invoke `drawing` we get to tell it what `mv` means, and in this case, we've
+partially applied our `moveWithTurn` function to bake-in a `turn 45` component.
 
 # Troubleshooting
 
-The Doodle language is extremely basic and has challenging error reporting.
+The Doodle language is extremely basic and has challenging error reporting. It has no type checking, and so we end up with some
+odd quirks that can frustrate us. With a little more time, these can all be addressed, but this is where we are for now.
 
 If your doodle is giving an error, check these things
 
@@ -228,6 +301,26 @@ If your doodle is giving an error, check these things
 
 - Commands are terminated by a `newline` character; you must therefore keep a single command on one line
 
+- The following function invocation won't work
+
+```
+let add a b := a + b
+let n := 100
+forward add n 50
+```
+
+Unfortunately `n` is seen as a function taking 50 as an argument, and gives an error `unknown function 'n'`
+
+Rewrite it like this:
+
+```
+forward add (n) 50
+```
+
 - `if/then/else` and `repeat` may have newlines before the `else` and `{` keywords.
 
 - Brackets aren't in general needed, but add them to make the order of evaluation more explicit if you're unsure
+
+## Credits
+
+Website icon <img src="/star.png" width="16" style='display: inline'> made by [BomSymbols](https://www.flaticon.com/authors/bomsymbols) from [FlatIcon](https://www.flaticon.com)

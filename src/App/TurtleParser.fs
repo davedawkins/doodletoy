@@ -279,7 +279,6 @@ let eatComments =
     parseWhite 1 <|> (parseSequence (parseWhite 0 ..>. (parseComment |> discard)) |> discard)
 
 let parseSemi = (parseChar ((=) ';') "semicolon")
-let parseDelim = eatSpaceTab ..>. (discard parseEnd <|> discard parseEol <|> discard parseComment)
 
 type TurtleState = {
     mutable IsPenDown : bool
@@ -389,6 +388,11 @@ let parseRelOp =
         (">=",Ge)
     ] |> parseOps
 
+let parseBlockStart = parseChar (isChar '{') "left curly"
+let parseBlockEnd = parseChar (isChar '}') "right curly"
+
+let parseDelim = eatSpaceTab ..>. (discard parseEnd <|> discard parseEol <|> discard parseComment <|> (discard (lookahead parseBlockEnd)))
+
 let buildBinTree =
     ParseResult.mapFst <| // Map result, let remainder go through unchanged
         fun (f,optTail) ->
@@ -396,18 +400,27 @@ let buildBinTree =
                 | None -> f // Was just factor like 1.0 or x
                 | Some tail -> tail |> (List.fold (fun a (op,b) -> Bin(op,a,b)) f)
 
+let rec makeLambda (ids,expr) =
+    match ids with
+    | [ id ] -> Lambda (id, expr)
+    | id::xs -> Lambda (id, makeLambda(xs,expr))
+    | [] -> failwith "No argument supplied"
+
 let rec parseFactor =
     (parseLambda <|> parseFun <|> parseNum <|> parseStr <|> parseIdRef <|> parseSubExpr)
 
 and parseFun =
     (parseIdent .>>. parseSequence parseExpr) |> map Id
 
+and parseLambdaBody =
+    (parseBlock |> map (TBlock >> Cmd)) <|> (parseCommand |> map Cmd)
+
 and parseLambda =
     parseKeyword "fun"
-        ..>. parseIdent
+        ..>. (parseSequenceMin 1 parseIdent)
         .>.. (parseKeyword "->" .>>. eatSpaceTabEol)
-        .>>. ((parseBlock |> map (TBlock >> Cmd)) <|> (parseCommand |> map Cmd) <|> parseExpr)
-        |> map Lambda
+        .>>. (parseLambdaBody <|> parseExpr)
+        |> map makeLambda
 
 and parseSubExpr =
     parseKeyword "(" ..>. parseExpr .>.. parseKeyword ")"
@@ -443,6 +456,12 @@ and parseStringCommand keyword =
     (andThen (parseKeyword keyword) parseExpr)
 
 and parseCommand =
+    let rec makeAssignment (ids,e) =
+        match ids with
+        | [id] -> TLet (id,e)
+        | id::xs -> TLet (id, makeLambda(xs,e))
+        | [] -> failwith "Missing assignment name"
+
     [
         ((parseNumericCommand "if") .>>. parseBlock .>>. (optional (eatSpaceTabEol ..>. parseKeyword "else" ..>. parseBlock)))
             |> map (fun (((_,n),cmd),elseCmd) -> TIf (n,cmd,elseCmd) )
@@ -450,7 +469,9 @@ and parseCommand =
             |> map (fun ((_,n),cmd) -> TRepeat (n,cmd) )
         parseIdent .>>. (parseSequence parseExpr) .>.. parseDelim |> map TCall
         (parseKeyword "let" ..>. parseIdent .>.. parseKeyword ":=" .>>. parseExpr)
-            |> map (fun (id,e) -> TLet (id,e))
+            |> map TLet
+        (parseKeyword "let" ..>. (parseSequenceMin 2 parseIdent) .>.. parseKeyword ":=" .>>. ((parseBlock |> map (TBlock >> Cmd)) <|> parseExpr))
+            |> map makeAssignment
 
     ] |> choose
 
@@ -476,10 +497,10 @@ and parseBlock =
     let inner input =
         let p =
             eatComments
-            ..>. parseChar (isChar '{') "left curly"
+            ..>. parseBlockStart
             .>>. parseCommands
             .>.. eatComments
-            .>>. parseChar (isChar '}') "right curly"
+            .>>. parseBlockEnd
         let r = run p (skipWhite input)
         match r with
         | Error msg -> Error msg
@@ -599,7 +620,7 @@ let evalProgramWithVarsImmediate (vars : Map<string,Val>) canvas program =
     if (context.State.LineCount > 0) then
         canvas.stroke()
 
-let logVal (a : Val) = _log($"{a}")
+let logVal (a : Val) = Fable.Core.JS.console.log($"{a}")
 
 type BuiltIn =
     static member Of ( f : float -> float ) =
@@ -711,9 +732,12 @@ let initBuiltIns (vars : Map<string,Val>) =
     let vars' : Map<string,Val> =
         vars
             .Add( "t", (double(DateTime.Now.Ticks) / double(10_000_000)) |> Float)
+            .Add( "pi", (Math.PI) |> Float)
 
             .Add( "truncate", BuiltIn.Of(fun (t:float) -> Math.Truncate t))
             .Add( "frac", BuiltIn.Of(fun (t:float) -> t - Math.Truncate t))
+            .Add( "deg", BuiltIn.Of(fun (r:float) -> 180.0 * r / Math.PI))
+            .Add( "rad", BuiltIn.Of(fun (r:float) -> Math.PI * r / 180.0))
             .Add( "sin", BuiltIn.Of(Math.Sin))
             .Add( "cos", BuiltIn.Of(Math.Cos))
             .Add( "tan", BuiltIn.Of(Math.Tan))

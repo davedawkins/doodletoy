@@ -226,5 +226,6 @@ type ExternalMessage =
     | RegisteredNewAccount
     | RegisterNewAccount
     | NewDoodle
+    | ResumeDoodle
     | EditDoodleId of string
     | ViewDoodleId of string

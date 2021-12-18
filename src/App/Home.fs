@@ -68,12 +68,12 @@ let style = [
         ]
     ])
 
-    rule ".feature-welcome h1" [
+    rule "h1" [
         Css.fontSize (rem 2)
         Css.marginTop (rem 2.5)
     ]
 
-    rule ".featured-container h2" [
+    rule "h2" [
         Css.marginBottom (rem 1)
     ]
 
@@ -145,11 +145,13 @@ let style = [
     ]
     rule ".fa-twitter" [
         Css.color "rgb(71, 155, 233)"
-        Css.fontSize (percent 150)
+        Css.marginRight (rem 0.5)
+        //Css.fontSize (percent 150)
     ]
     rule ".fa-github" [
         Css.color "black"
-        Css.fontSize (percent 150)
+        Css.marginRight (rem 0.5)
+        //Css.fontSize (percent 150)
     ]
 
     rule ".view a" [
@@ -213,16 +215,31 @@ let view (server : Server) =
                 ]
 
                 UI.divc "contact" [
-                    UI.flexRow [
-                        Html.a [ // 71, 155, 233
+                    Html.h2 "Contact"
+                    //UI.flexRow [
+                    Html.p [
+                        Html.a [
                             Attr.href "https://twitter.com/DaveDawkins"
                             Html.i [ Attr.className "fa fa-twitter" ]
                         ]
+                        text "Find me on "
+                        Html.a [
+                            Attr.href "https://twitter.com/DaveDawkins"
+                            text "Twitter"
+                        ]
+                    ]
+                    Html.p [
                         Html.a [
                             Attr.href "https://github.com/davedawkins/sutil-template-appwrite"
                             Html.i [ Attr.className "fa fa-github" ]
                         ]
+                        text "Find source code and log issues on "
+                        Html.a [
+                            Attr.href "https://github.com/davedawkins/sutil-template-appwrite"
+                            text "Github"
+                        ]
                     ]
+                    //]
                 ]
             ]
         ]
