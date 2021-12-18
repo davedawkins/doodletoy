@@ -416,7 +416,7 @@ Appwrite does an amazing job of making all of this very easy. In Appwrite server
 
 <img src='https://user-images.githubusercontent.com/285421/145910359-c913e999-3062-4899-85b5-e07d53d04fd9.png' width='600px'>
 
-It's at this stage you'll be grateful you don't have any non-standard ports for your Appwrite server installation. I think I managed to do this, but when anything went wrong, this was what I suspected first and so I decided that standard ports would just remove that as a possible issue. Now that I have everything working (well...), I may go back and see what's possible. Ideally I want a single host instance with multiple `https://` domains served on standard ports, for Appwrite and for the web app. 
+It's at this stage you'll be grateful you don't have any non-standard ports for your Appwrite server installation. I managed to configure everything with non-standard ports at one point, but when anything went wrong, this was what I suspected first and so I decided that standard ports would just remove that as a possible issue. Now that I have everything working, I may go back and see what's possible. Ideally I want a single host instance with multiple `https://` domains served on standard ports, for Appwrite and for the web app. 
 
 Once you have these set up, this is how you initiate a user session via an external provider:
 
@@ -542,8 +542,9 @@ I still have work to do on the server:
 - Implement backups. There are guidelines for this, but I wish it was achievable from the UI console without having to write a script
 - Review the document permissions
 - Review the development-only settings - for example, you can tell Appwrite to disable request throttling during development. Remember to re-enable this for production!
+- I would like to find out if it's possible combine the appwrite server with the app hosting server (this is an issue with ports, mentioned previously).
 
-For the front-end, Sutil worked great. I extended Sutil to support media queries in the component-level styling. This is a feature borrowed from Svelte, and I really like it. It means that each page effectively has its own style sheet (see use of `withStyle` in the source).
+For the front-end, Sutil worked admirably. I extended Sutil to support media queries in the component-level styling. This is a feature borrowed from Svelte, and I really like it. It means that each page effectively has its own style sheet (see use of `withStyle` in the source).
 
 I have to mention how productive it is to be able to code front-end web apps with F#; [Fable](https://fable.io) + VSCode + [Ionide](https://ionide.io/) is a formidable set of tools that enable me to code in F# as if I was developing regular .NET applications on the desktop, or for a server platform. I frequently forget that this is all targeting JavaScript.
 
