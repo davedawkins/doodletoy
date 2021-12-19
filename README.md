@@ -167,9 +167,16 @@ The mapping function:
 
 ## F# Bindings for Appwrite
 
-I used ts2fable to create the initial set of bindings, and then hand modified the result.
+Appwrite has API bindings for several platforms, and I've been working with the [Appwrite for Web](https://appwrite.io/docs/getting-started-for-web) API.
 
-One problem was that ts2fable initially was converting 
+You can install these with
+```
+npm install appwrite
+```
+
+and then find the `TypeScript` bindings within the `node_modules` folder. I passed these through `ts2fable` to create the initial set of bindings, and then hand modified the result.
+
+One problem was that `ts2fable` initially was converting 
 
 ```ts
 declare class Api {
@@ -241,6 +248,8 @@ type ListDocumentsResult<'T> =
     abstract sum : int
     abstract documents : 'T[]
 ```
+
+The bindings are now available in the [Fable.Appwrite](https://www.nuget.org/packages/Fable.Appwrite/) `nuget` package.
 
 ## Domain Modeling
 
