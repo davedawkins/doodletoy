@@ -13,7 +13,6 @@
     <Compile Include="Verify.fs" />
     <Compile Include="Register.fs" />
     <Compile Include="Login.fs" />
-    <Compile Include="Chat.fs" />
     <Compile Include="Editor.fs" />
     <Compile Include="Browse.fs" />
     <Compile Include="Home.fs" />

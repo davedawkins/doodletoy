@@ -291,21 +291,39 @@ type Server() =
             return ()
         }
 
-    member _.AllLikes() : JS.Promise<Like[]>=
-        let likes = sdk.database.listDocuments( likesCollectionId ) : JS.Promise<ListDocumentsResult<Like>>
-        likes |> Promise.map (fun r -> r.documents)
+    member x.ListAll<'T>( collectionId : string, filter : string array ) : JS.Promise<'T array> =
+        promise {
+            let mutable chunks : ('T array) list = []
+            let mutable received = 0
+            let mutable total = 999 // Yuck. Allow initial iteration (received < total)
 
-    member _.AllViews() : JS.Promise<Views[]> =
-        let views = sdk.database.listDocuments( viewsCollectionId ) : JS.Promise<ListDocumentsResult<Views>>
-        views |> Promise.map (fun r -> r.documents)
+            while received < total do
+                let! chunk = sdk.database.listDocuments(collectionId, filter, 25.0, float received) : JS.Promise<ListDocumentsResult<'T>>
 
-    member _.Likes( d : Doodle) =
-        let likes = sdk.database.listDocuments( likesCollectionId, [| "doodleId=" + d._id |] ) : JS.Promise<ListDocumentsResult<Like>>
-        likes |> Promise.map (fun r -> r.documents)
+                if (received = 0) then
+                    total <- chunk.sum
 
-    member _.Views( id : string ) : JS.Promise<Views[]> =
-        let views = sdk.database.listDocuments( viewsCollectionId, [| "doodleId=" + id |] ) : JS.Promise<ListDocumentsResult<Views>>
-        views |> Promise.map (fun r -> r.documents)
+                received <- received + chunk.documents.Length
+                chunks <- chunk.documents :: chunks
+
+            return chunks |> Array.concat
+        }
+
+    member x.AllLikes() : JS.Promise<Like array>=
+        x.ListAll<Like>( likesCollectionId, [| |])
+
+    member x.AllViews() : JS.Promise<Views array> =
+        x.ListAll<Views>( viewsCollectionId, [| |])
+
+    member x.Likes( d : Doodle) =
+        x.ListAll<Like>( likesCollectionId, [| "doodleId=" + d._id |] )
+        //let likes = sdk.database.listDocuments( likesCollectionId, [| "doodleId=" + d._id |] ) : JS.Promise<ListDocumentsResult<Like>>
+        //likes |> Promise.map (fun r -> r.documents)
+
+    member x.Views( id : string ) : JS.Promise<Views[]> =
+        x.ListAll<Views>( viewsCollectionId, [| "doodleId=" + id |] )
+        //let views = sdk.database.listDocuments( viewsCollectionId, [| "doodleId=" + id |] ) : JS.Promise<ListDocumentsResult<Views>>
+        //views |> Promise.map (fun r -> r.documents)
 
     member x.GetDoodleView( d: string ) : JS.Promise<DoodleView> =
         promise {
@@ -364,23 +382,25 @@ type Server() =
             return! x.GetDoodleView(doodle)
         }
 
-    member x.AllDoodles() = promise {
-            let! doodles = sdk.database.listDocuments(doodlesCollectionID) : JS.Promise<ListDocumentsResult<Doodle>>
+    member x.AllDoodles() =
+        x.ListAll(doodlesCollectionID, [| |])
+    // promise {
+    //         let! doodles = sdk.database.listDocuments(doodlesCollectionID) : JS.Promise<ListDocumentsResult<Doodle>>
 
-            //doodlesById <- doodles.documents |> Array.map (fun d -> d._id,d) |> Map.ofArray
+    //         //doodlesById <- doodles.documents |> Array.map (fun d -> d._id,d) |> Map.ofArray
 
-            return doodles.documents
-    }
+    //         return doodles.documents
+    // }
 
     member x.UserDoodles ( id : string ) : JS.Promise<DoodleView array> =
         promise {
             let! doodles =
-                sdk.database.listDocuments(
+                x.ListAll<Doodle>(
                     doodlesCollectionID,
                     [| "ownedBy=" + id |]
-                ) : JS.Promise<ListDocumentsResult<Doodle>>
+                )
 
-            let! result = doodles.documents |> Array.map x.GetCachedDoodleView |> Promise.all
+            let! result = doodles |> Array.map x.GetCachedDoodleView |> Promise.all
             return result
         }
 
@@ -392,14 +412,28 @@ type Server() =
             let! views = x.AllViews()
 
             let likeMap = likes |> Array.groupBy (fun like -> like.doodleId) |> Map.ofArray
-            let viewsMap = views |> Array.groupBy (fun like -> like.doodleId) |> Map.ofArray
+            let viewsMap = views |> Array.groupBy (fun view -> view.doodleId) |> Map.ofArray
 
-            let createView d =
+            //Fable.Core.JS.console.dir(views)
+
+
+            let myLike (likes : Like array) =
+                x.SessionUser
+                |> Option.map( fun (u:SessionUser) -> likes |> Array.tryFind (fun like -> like.userId = u.User._id) )
+                |> Option.defaultWith (fun _ -> None)
+
+            let createView (d : Doodle) =
+                let likes' = if likeMap.ContainsKey(d._id) then likeMap.[d._id] else [| |]
+                let views' = if viewsMap.ContainsKey(d._id) then viewsMap.[d._id] else [| |]
+
+                //Fable.Core.JS.console.log("-- " + d.name + " " + d._id + " ----------------")
+                //Fable.Core.JS.console.dir(views')
+
                 {
                     Doodle = d
-                    Likes = if likeMap.ContainsKey(d._id) then likeMap.[d._id] else [| |]
-                    Views = if viewsMap.ContainsKey(d._id) then viewsMap.[d._id] else [| |]
-                    MyLike = None
+                    Likes = likes'
+                    Views = views'
+                    MyLike = myLike(likes')
                     IsFeatured = false
                 }
 
