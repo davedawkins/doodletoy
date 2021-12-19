@@ -18,6 +18,7 @@
 - User Sessions
 - Anonymous Users
 - Doodle Language
+- Conclusion
 - References
 
 ## Introduction
@@ -68,7 +69,7 @@ I can't claim that this is easier than just using Azure / AWS / GCP etc - I don'
 
 ## Appwrite Server
 
-Appwrite server installs with a single command [link]. There is a small amount of configuration, but you're up and running very quickly. 
+Appwrite server installs with a [single command](https://appwrite.io/docs/installation). There is a small amount of configuration, but you're up and running very quickly. 
 
 ```
    +-----------------------+      +--------------------------+  
@@ -552,13 +553,15 @@ The Appwrite bindings are now available as a `nuget` package, [Fable.Appwrite](h
 
 ## References
 
+https://appwrite.io
+
 https://linode.com
 
+https://fable.io
+
+https://ionide.io
+
 https://fable.io/ts2fable
-
-https://appwrite.io/docs/installation
-
-https://appwrite.io/docs/getting-started-for-web
 
 https://fsharpforfunandprofit.com/parser/
 
