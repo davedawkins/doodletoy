@@ -18,6 +18,7 @@
 - User Sessions
 - Anonymous Users
 - Doodle Language
+- Conclusion
 - References
 
 ## Introduction
@@ -28,9 +29,9 @@ I really enjoyed the breadth of fun topics this project brought me into contact 
 
 ## DoodleToy
 
-Having decided on Appwrite, I needed a more fully defined project. I decided to make use of some work I did about a year ago with turtle graphics (links), and turn it into the turtle equivalent of https://shadertoy.com. I had this idea that everyone who read the article could go and create their own doodle. This would require me to store documents, have user accounts, etc; all things that would be a good test of Appwrite, and something that connect the visitors.
+Having decided on Appwrite, I needed a more fully defined project. I decided to make use of some work I did about a year ago with [turtle graphics](https://github.com/davedawkins/Fable.React.DrawingCanvas), and turn it into the turtle equivalent of https://shadertoy.com. I had this idea that everyone who read the article could go and create their own doodle. This would require me to store documents, have user accounts, etc; all things that would be a good test of Appwrite, and in addition something has a social aspect.
 
-DoodleToy itself is an editor for generative art programs written in a custom turtle graphics language (based on my previous work, and heavily extended). You can create your own, and browser other people's doodles. To save doodles, you need to create an account. You can log in with Google, Github, Discord or register directly. 
+DoodleToy then is a web app written from scratch for this project, and is an editor and browser for generative art programs written in a custom turtle graphics language, called `doodles`. You can create your own doodles, and browse other people's. To save and share doodles to Twitter, you need to create an account. You can log in with Google, Github, Discord or register directly.
 
 The app is served from https://doodletoy.net, and is written in F# using [Fable](https://fable.io), [Sutil](https://sutil.dev) and the [Appwrite](https://appwrite.io) SDK. 
 
@@ -68,11 +69,11 @@ I can't claim that this is easier than just using Azure / AWS / GCP etc - I don'
 
 ## Appwrite Server
 
-Appwrite server installs with a single command [link]. There is a small amount of configuration, but you're up and running very quickly. 
+Appwrite server installs with a [single command](https://appwrite.io/docs/installation). There is a small amount of configuration, but you're up and running very quickly. 
 
 ```
    +-----------------------+      +--------------------------+  
-   | https://doodletoy.net |      | https://solochimp.com    |
+   | https://doodletoy.net |      | https://myappwrite.net    |
    | Ports: 80 / 443       |      | Ports: 80 / 443          |
    | Linode instance       |      | Linode instance          |
    | Serves the web app    |      | Runs the Appwrite server |
@@ -85,7 +86,7 @@ I already had a [Linode](https://www.linode.com) instance and I decided to fire 
 
 If you use non-standard ports for Appwrite, you can use your nginx to do the routing, but then I suspect you'll get into problems with OAUTH2 redirection URLs - we use those to allow people to login via Google, Discord, Github etc.
 
-Once installed, you can then log into the Appwrite console, and configure your projects. The Appwrite instance on solochimp has a project
+Once installed, you can then log into the Appwrite console, and configure your projects. The Appwrite instance on `myappwrite.net` has a project
 named "doodletoy", and within this project are defined the documents, users, authentication methods and web platforms.
 
 While testing, I'd suggest disabling the rate limits, otherwise you'll be locked out from testing your login code after a few attempts. It's a neat feature, and I need to re-enable it for doodletoy!
@@ -166,9 +167,16 @@ The mapping function:
 
 ## F# Bindings for Appwrite
 
-I used ts2fable to create the initial set of bindings, and then hand modified the result.
+Appwrite has API bindings for several platforms, and I've been working with the [Appwrite for Web](https://appwrite.io/docs/getting-started-for-web) API.
 
-One problem was that ts2fable initially was converting 
+You can install these with
+```
+npm install appwrite
+```
+
+and then find the `TypeScript` bindings within the `node_modules` folder. I passed these through `ts2fable` to create the initial set of bindings, and then hand modified the result.
+
+One problem was that `ts2fable` initially was converting 
 
 ```ts
 declare class Api {
@@ -240,6 +248,8 @@ type ListDocumentsResult<'T> =
     abstract sum : int
     abstract documents : 'T[]
 ```
+
+The bindings are now available in the [Fable.Appwrite](https://www.nuget.org/packages/Fable.Appwrite/) `nuget` package.
 
 ## Domain Modeling
 
@@ -318,6 +328,8 @@ You can also see the schema as a JSON document (abbreviated):
 ```
 
 This would be an obvious starting point for a tool that can generate F# bindings such as the `Doodle` class above.
+
+It was tempting to store the number of views for a doodle on the `doodle` document, but this would have meant that user X clicking on a doodle owned by user Y would have required user X to have write permission for that doodle. My solution was to have a separate collection named `views`, that needs to be joined. In `Server.fs` DoodleView is used to join `doodles` with `views` and `likes`.
 
 ## Saving Documents
 
@@ -414,7 +426,7 @@ Appwrite does an amazing job of making all of this very easy. In Appwrite server
 
 <img src='https://user-images.githubusercontent.com/285421/145910359-c913e999-3062-4899-85b5-e07d53d04fd9.png' width='600px'>
 
-It's at this stage you'll be grateful you don't have any non-standard ports for your Appwrite server installation. I think I managed to do this, but when anything went wrong, this was what I suspected first and so I decided that standard ports would just remove that as a possible issue. Now that I have everything working (well...), I may go back and see what's possible. Ideally I want a single host instance with multiple `https://` domains served on standard ports, for Appwrite and for the web app. 
+It's at this stage you'll be grateful you don't have any non-standard ports for your Appwrite server installation. I managed to configure everything with non-standard ports at one point, but when anything went wrong, this was what I suspected first and so I decided that standard ports would just remove that as a possible issue. Now that I have everything working, I may go back and see what's possible. Ideally I want a single host instance with multiple `https://` domains served on standard ports, for Appwrite and for the web app. 
 
 Once you have these set up, this is how you initiate a user session via an external provider:
 
@@ -498,7 +510,7 @@ let add2 := fun n -> n + 2
 let mul := fun x -> fun y -> x * y
 ```
 
-It wouldn't take much to add more syntax (parsers) that allows these constructs as macros for the curried forms shown above:
+The following forms are syntax macros for the forms above:
 
 ```fs
 let mul := fun x y -> x * y  
@@ -540,19 +552,29 @@ I still have work to do on the server:
 - Implement backups. There are guidelines for this, but I wish it was achievable from the UI console without having to write a script
 - Review the document permissions
 - Review the development-only settings - for example, you can tell Appwrite to disable request throttling during development. Remember to re-enable this for production!
+- I would like to find out if it's possible combine the appwrite server with the app hosting server (this is an issue with ports, mentioned previously).
 
-For the front-end, Sutil worked great. I extended Sutil to support media queries in the component-level styling. This is a feature borrowed from Svelte, and I really like it. It means that each page effectively has its own style sheet (see use of `withStyle` in the source).
+For the front-end, Sutil worked admirably. I extended Sutil to support media queries in the component-level styling. This is a feature borrowed from Svelte, and I really like it. It means that each page effectively has its own style sheet (see use of `withStyle` in the source).
+
+I have to mention how productive it is to be able to code front-end web apps with F#; [Fable](https://fable.io) + VSCode + [Ionide](https://ionide.io/) is a formidable set of tools that enable me to code in F# as if I was developing regular .NET applications on the desktop, or for a server platform. I frequently forget that this is all targeting JavaScript.
+
+The Appwrite bindings are now available as a `nuget` package, [Fable.Appwrite](https://www.nuget.org/packages/Fable.Appwrite).
 
 ## References
 
+https://appwrite.io
+
 https://linode.com
+
+https://fable.io
+
+https://ionide.io
 
 https://fable.io/ts2fable
 
-https://appwrite.io/docs/installation
-
-https://appwrite.io/docs/getting-started-for-web
-
 https://fsharpforfunandprofit.com/parser/
 
+https://www.nuget.org/packages/Fable.Appwrite
+
+https://github.com/davedawkins/sutil
 
