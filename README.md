@@ -565,4 +565,7 @@ https://fable.io/ts2fable
 
 https://fsharpforfunandprofit.com/parser/
 
+https://www.nuget.org/packages/Fable.Appwrite
+
+https://github.com/davedawkins/sutil
 
