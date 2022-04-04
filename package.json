@@ -6,7 +6,7 @@
     "deploy:linode": "bash deployToLinode.sh ./public doodletoy '' deploy@213.52.129.104 /home/deploy/apps"
   },
   "dependencies": {
-    "appwrite": "^4.0.4",
+    "appwrite": "^7.0.0",
     "webpack": "^5.11.0",
     "webpack-cli": "^4.2.0",
     "webpack-dev-server": "^3.11.0"

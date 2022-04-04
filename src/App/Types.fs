@@ -3,6 +3,9 @@ module Types
 open Sutil.DOM
 open AppwriteSdk
 open System
+open Fable.Core.Util
+open Fable.Core.JsInterop
+open Fable.Core
 
 module MakeName =
     let nouns = [|
@@ -131,71 +134,113 @@ module MakeName =
         let capFirst (x : string) = x.Substring(0,1).ToUpper() + x.Substring(1)
         (capFirst a) + (capFirst b)
 module Schema =
-    [<AllowNullLiteral>]
-    type ChatMessage =
-        abstract ts: int
-        abstract message: string
-        abstract user: string
 
-    type Doodle = {
-        ``$id`` : string
-        name : string
-        description : string
-        source : string
-        ownedBy : string
-        ownedByName : string
-        createdOn : float
-        modifiedOn : float
-        isPrivate : bool
-    }
-    with
-        static member Create() : Doodle = {
-            ``$id`` = Unchecked.defaultof<_>
-            name = MakeName.makeName()
-            description = ""
-            source = Examples.templateSource
-            ownedBy = ""
-            ownedByName = ""
-            createdOn = 0.
-            modifiedOn = 0.
-            isPrivate = false }
-        interface HasId
+    type User = Models.User<Models.Preferences>
 
-    type Configuration = {
-        ``$id`` : string
-        featured : string }
-    with
-        static member Create() = { ``$id`` = Unchecked.defaultof<_>; featured = "" }
-        interface HasId
-    type Like = {
-        doodleId: string
-        userId: string
-    }
-    with
-        static member Create( t : Doodle, u : User ) : Like = {
-            doodleId = t._id
-            userId = u._id
-            }
-        interface HasId
+    type SchemaHelper =
+        static member Create<'T when 'T :> Models.Document>() =
+            {|
+                ``$id`` = Unchecked.defaultof<string>
+            |} :> obj :?> 'T
 
-    type Views = {
-        doodleId: string
-        mutable numViews: float
-    }
-    with
-        static member Create( id : string, n : float ) : Views = {
-                doodleId = id
-                numViews = n
-            }
-        static member Create( id : string ) =
-            Views.Create(id, 1.0)
+    type Doodle =
+        abstract member name : string with get, set
+        abstract member description : string with get, set
+        abstract member source : string with get, set
+        abstract member ownedBy : string with get, set
+        abstract member ownedByName : string with get, set
+        abstract member createdOn : float with get, set
+        abstract member modifiedOn : float with get, set
+        abstract member isPrivate : bool with get, set
+        inherit Models.Document
 
-        member x.Increment() =
-            x.numViews <- x.numViews + 1.0
+    type Configuration =
+        abstract member featured : string with get, set
+        inherit Models.Document
 
-        interface HasId
+    type Like =
+        abstract member doodleId: string with get, set
+        abstract member userId: string with get, set
+        inherit Models.Document
 
-type DoodleView = {
+    type Views =
+        abstract member doodleId:string with get, set
+        abstract member numViews:float with get, set
+        inherit Models.Document
+
+
+    [<AutoOpen>]
+    module Extensions =
+
+        let create<'T when 'T :> Models.Document>() : 'T =
+            !!{| ``$id`` = Unchecked.defaultof<string> |}
+
+        [<Emit("Object.assign({}, $0, $1)")>]
+        let assignNew (source: 'T) (newProps: 'R): 'T = jsNative
+
+        type Configuration with
+            member this.Update( featured : string ) : Configuration =
+                assignNew this {| featured = featured |}
+
+            static member Create() : Configuration =
+                create<Configuration>().Update( featured = "" )
+
+        type Views with
+            member this.Increment() =
+                assignNew this {| numViews = this.numViews + 1.0 |}
+
+            static member Create( id : string, n : float ) : Views =
+                let x = create<Views>()
+                x.doodleId <- id
+                x.numViews <- n
+                x
+
+            static member Create( id : string ) =
+                Views.Create(id, 1.0)
+            static member Increment(v : Views) =
+                v.numViews <- v.numViews + 1.0
+
+        type Like with
+            static member Create( t : Doodle, u : User ) : Like =
+                let x = create<Like>()
+                x.doodleId <- t._id
+                x.userId <- u._id
+                x
+
+        type Doodle with
+            static member Create() : Doodle =
+                let d : Doodle = create()
+                d.description <- ""
+                d.name <- MakeName.makeName()
+                d.source <- Examples.templateSource
+                d.ownedBy <- ""
+                d.ownedByName <- ""
+                d.createdOn <- 0.
+                d.modifiedOn <- 0.
+                d.isPrivate <- false
+                d
+
+            member this.UpdateModifiedOn( modifiedOn : float ) =
+                assignNew this {| modifiedOn = modifiedOn |}
+
+            member this.UpdateName( name : string ) =
+                assignNew this {| name = name |}
+
+            member this.UpdateSource( source : string ) =
+                assignNew this {| source = source |}
+
+            member this.UpdateDescription( description : string ) =
+                assignNew this {| description = description |}
+
+            member this.Update( ownedBy : string, ownedByName : string, modifiedOn : float, createdOn : float) =
+                let d = assignNew this {| |}
+                d.ownedBy <- ownedBy
+                d.ownedByName <- ownedByName
+                d.modifiedOn <- modifiedOn
+                d.createdOn <- createdOn
+                d
+
+ type DoodleView = {
     Doodle : Schema.Doodle
     Likes : Schema.Like []
     Views : Schema.Views []
@@ -204,7 +249,7 @@ type DoodleView = {
 }
 
 type SessionUser = {
-    User          : User
+    User          : Schema.User
     IsAdmin       : bool
 }
 

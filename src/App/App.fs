@@ -9,6 +9,7 @@ open Sutil.Styling
 open UI
 open Types
 open Browser.Types
+open Types.Schema
 
 type Model = {
     Page : Page
@@ -18,7 +19,7 @@ type Model = {
 type Message =
     | SignOut
     | SetPage of Page*string // Change page directly, no change to URL or browse history
-    | SignedIn of User
+    | SignedIn of Schema.User
     | SignedOut
     | External of ExternalMessage
     | Initialized
@@ -300,5 +301,6 @@ let view() =
             viewMain server model dispatch
         ]
     ] |> withStyle appStyle
+
 
 view() |> Program.mountElement "sutil-app"

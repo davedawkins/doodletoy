@@ -25,7 +25,8 @@
         <PackageReference Include="Fable.Date" Version="1.*" />
         <PackageReference Include="Fable.Fetch" Version="2.2.0" />
         <PackageReference Include="Fable.Formatting.Markdown" Version="1.0.1" />
-        <PackageReference Include="Fable.Appwrite" Version="1.0.1" />
+        <PackageReference Include="Fable.Appwrite" Version="2.0.0" />
+        <!-- <ProjectReference Include="..\..\..\davedawkins\Fable.Appwrite\src\Fable.Appwrite\Fable.Appwrite.fsproj" /> -->
         <!-- <ProjectReference Include="..\..\..\Sutil\src\Sutil\Sutil.fsproj" /> -->
         <PackageReference Include="Sutil" Version="1.0.0-beta-014" />
     </ItemGroup>

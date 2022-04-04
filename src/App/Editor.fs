@@ -11,6 +11,7 @@ open Types
 open System
 open Sutil.Styling
 open AppwriteSdk
+open Types.Schema
 
 let private _log (s:string) = Fable.Core.JS.console.log(s)
 
@@ -67,7 +68,7 @@ module Storage =
 
     let save (d : Schema.Doodle) =
         let map = {| |}
-        map?current <- { d with modifiedOn = Server.DateTimeNow }
+        map?current <- d.UpdateModifiedOn(Server.DateTimeNow)
         setDoodles map
 
     let get() : Schema.Doodle option =
@@ -193,11 +194,11 @@ let update (server : Server) (session:DoodleSession option) msg (model : Model)=
             model, Cmd.OfPromise.either (s.SaveAsNew) (model.Doodle) Saved Error
         | None -> model, Cmd.none
     | SetName s ->
-        { model with Doodle = { model.Doodle with name = s }; IsEdited = true }, Cmd.ofMsg SaveLocal
+        { model with Doodle = model.Doodle.UpdateName(name = s); IsEdited = true }, Cmd.ofMsg SaveLocal
     | SetDescription s ->
-        { model with Doodle = { model.Doodle with description = s }; IsEdited = true }, Cmd.ofMsg SaveLocal
+        { model with Doodle = model.Doodle.UpdateDescription( description = s ); IsEdited = true }, Cmd.ofMsg SaveLocal
     | SetSource s ->
-        { model with Doodle = { model.Doodle with source = s }; IsEdited = true }, Cmd.ofMsg SaveLocal
+        { model with Doodle = model.Doodle.UpdateSource( source = s ); IsEdited = true }, Cmd.ofMsg SaveLocal
     | ClearLocal ->
         Storage.clear()
         model, Cmd.none
