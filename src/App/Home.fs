@@ -169,7 +169,10 @@ let style = [
 
 open Browse.DoodleView
 
+let logDebug (s:string) = ignore s // Fable.Core.JS.console.log("Home: " + s)
+
 let view (server : Server) =
+    logDebug "view"
     let model, dispatch = server |> Store.makeElmish init (update server) ignore
 
     let unsub = (server.State |> Store.map ( fun s -> s.Configuration.featured)).Subscribe( fun f ->
@@ -258,6 +261,7 @@ let shareToTwitter( doodle : Schema.Doodle ) =
     ()
 
 module View =
+
     let view (server : Server) (doodleView : DoodleView)=
         let model, dispatch = server |> Store.makeElmish init (update server) ignore
         let doodle = doodleView.Doodle

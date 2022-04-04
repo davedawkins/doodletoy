@@ -11,7 +11,10 @@ open Types
 open Browser.Types
 open Types.Schema
 
+let logDebug (s: string) =
+    ignore s //Fable.Core.JS.console.log("App: " + s)
 type Model = {
+    Seq : int
     Page : Page
     Session : DoodleSession option
     }
@@ -24,6 +27,7 @@ type Message =
     | External of ExternalMessage
     | Initialized
     | Confirmed of Message
+    | Error of System.Exception
     | SetUrl of string // Change page via URL, and add to browse history
 
 module UrlParser =
@@ -59,6 +63,7 @@ module UrlParser =
 
     let parseMessage(loc:Location) : Message =
         let hash, query = (parseUrl loc)
+        logDebug $"parseMessage: {hash}"
         match hash with
         |"create" -> External NewDoodle
         |"new" -> External NewDoodle
@@ -97,26 +102,29 @@ let init (server : Server) : Model * Cmd<Message> =
 
     let initPage = Home
     {
+        Seq = 0
         Page = initPage
         Session = None
         },
         [ serverInit ]
 
 let rec update (server : Server) (confirmed : bool) msg (model:Model) =
-    //Fable.Core.JS.console.log($"{msg}")
+    logDebug($"Update: {msg}")
 
     match msg with
 
-    | SetUrl url ->
-        Browser.Dom.window.location.href <- url
+    | Error x ->
+        Fable.Core.JS.console.error(x)
         model, Cmd.none
+
+    | SetUrl url ->
+        model, Cmd.OfFunc.attempt (fun _ -> Browser.Dom.window.location.href <- url) () Error
 
     | Confirmed msg ->
         update server true msg model
 
     | SignOut ->
-        server.SignOut() |> ignore
-        model, Cmd.none
+        model, Cmd.OfPromise.attempt (server.SignOut) () Error
 
     | Initialized ->
         let subscribe dispatch =
@@ -226,8 +234,12 @@ let rec update (server : Server) (confirmed : bool) msg (model:Model) =
         else
             model, Cmd.ofMsg (SetPage (AwaitingVerification,"SignedIn"))
 
+
+
 let viewMain server (model : System.IObservable<Model>) dispatch =
+    logDebug("Rebuild viewMain")
     Bind.el( model, fun m ->
+        logDebug($"viewMain: {m.Seq} {m.Page} {(model |> Store.current).Page} {model.GetHashCode()}")
         match m.Session, m.Page with
         | _, Register -> Register.view server
         | _, Registered -> Verify.view true server
@@ -258,12 +270,13 @@ let appStyle = [
     ])
 ]
 
+
 let view() =
     let server = new Server()
 
     let model, dispatch = server |> Store.makeElmish init (update server false) ignore
 
-    let unsubnav = Navigable.listenLocation UrlParser.parseMessage dispatch
+    let unsubnav = Navigable.listenLocation UrlParser.parseMessage (fun d -> logDebug "location dispatch"; dispatch d)
 
     Html.div [
         unsubscribeOnUnmount [ unsubnav ]

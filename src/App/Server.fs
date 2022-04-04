@@ -65,30 +65,32 @@ type Server() =
     let logError (msg : string) =
         JS.console.error(msg)
 
+    let logDebug (msg : string) =
+        ignore msg // JS.console.log("Server: " + msg)
+
     //let log (msg : string) =  () //JS.console.log(msg)
 
     let setSessionUser (user : Option<SessionUser>) =
-        //log("setSessionUser" + (user |> function None -> "None"| Some u -> u.User.name))
-        //Fable.Core.JS.console.dir(model)
+        logDebug("setSessionUser " + (user |> function None -> "None"| Some u -> u.User.name))
         Store.modify (fun m -> { m with ServerModel.User = user }) model
 
     let setConfiguration config =
-        //log("setConfiguration")
+        logDebug("setConfiguration")
         Store.modify (fun m -> { m with ServerModel.Configuration = config }) model
 
     let startSession() = promise {
-        //Fable.Core.JS.console.log("startSession")
+        logDebug("startSession")
 
         let! userOrVisitor = promise {
             try
                 // We may already have an active session, so pick it up
                 let! session = (sdk.account.get() : JS.Promise<Schema.User>)
-                //Fable.Core.JS.console.log(" - resume session: " + session.email)
+                logDebug(" - resume session: " + session.email)
                 return session
             with
             |x ->
                 let! session = sdk.account.createSession(visitorEmail, "doodletoy")
-                //Fable.Core.JS.console.log($" no session ({x.Message}) - create visitor session")
+                logDebug($" no session ({x.Message}) - create visitor session")
                 return! sdk.account.get()
         }
 
@@ -126,7 +128,7 @@ type Server() =
     }
 
     let initSdk() =
-        JS.console.log( AppwriteSdk.exports.Query.equal("abc", QueryTypesSingle.Case1 "100" |> QueryTypes.Case1) )
+        logDebug("initSdk")
         sdk
             .setEndpoint(serviceUrl)
             .setProject(doodlesProjectID)
@@ -167,7 +169,6 @@ type Server() =
         promise {
             dispatch <- dispatchExternal
             initSdk()
-            JS.console.log("SDK initialized")
             do! startSession()
 
             if urlParams.ContainsKey("userId") && urlParams.ContainsKey("secret") then
@@ -202,16 +203,24 @@ type Server() =
         }
 
     member _.SignIn(email:string, password:string) =
+        logDebug($"SignIn: {email}")
         promise {
-            try     sdk.account.deleteSession "current" |> ignore
-            with    _ -> ()
+            try
+                let! _ = sdk.account.deleteSession "current"
+                logDebug("Signed out")
+                ()
+            with
+                _ -> ()
 
+            logDebug("createSession")
             let! _ = sdk.account.createSession(email,password)
 
+            logDebug("starting session")
             do! startSession()
         }
 
     member _.SignInWith(provider : string) =
+        logDebug($"SignInWith: {provider}")
         sdk.account.deleteSession "current"
         |> ignoreError (fun () -> // FIXME
             sdk.account.createOAuth2Session( provider, appUrl, appUrl ) |> ignore
