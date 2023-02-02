@@ -135,7 +135,7 @@ module MakeName =
         (capFirst a) + (capFirst b)
 module Schema =
 
-    type User = Models.User<Models.Preferences>
+    type User = AppwriteSdk.Models.Account<Models.Preferences>
 
     type SchemaHelper =
         static member Create<'T when 'T :> Models.Document>() =

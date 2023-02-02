@@ -15,15 +15,19 @@ let appUrl = "https://doodletoy.net/"
 
 let private chatCollectionID = "617c11bb63b82"
 
+//let private serviceUrl = "https://solochimp.com/v1"
 let private serviceUrl = "https://appwrite.doodletoy.net/v1"
 //let private serviceUrl = "https://localhost/v1"
 let private doodlesProjectID = "619bd8cd83fa8"
 let private doodlesCollectionID = "619bd92054698"
 let private likesCollectionId = "619bda17062c0"
 let private viewsCollectionId = "619bda67c7d02"
+let private visitorName = "visitor"
 let private visitorEmail = "visitor@solochimp.com"
 let private adminTeamId = "619d6583db1da"
 let private configurationCollectionId = "619dfd44d6fb5"
+let private visitorP = "doodletoy"
+let private databaseId = "default"
 
 type ServerModel = {
     User : SessionUser option
@@ -44,7 +48,11 @@ type Server() =
 
     let current() = model |> Store.get
 
-    let sdk = AppwriteSdk.Create()
+    let client = Appwrite.Client.Create()
+    let account = Appwrite.Account.Create(client)
+    let teams = Appwrite.Teams.Create(client)
+    let db = Appwrite.Databases.Create(client)
+    let perm = Appwrite.Permission.Create()
 
     let logUser (userOpt : Schema.User option) =
         userOpt |> function Some u -> JS.console.dir(u) | None -> ()
@@ -66,7 +74,7 @@ type Server() =
         JS.console.error(msg)
 
     let logDebug (msg : string) =
-        ignore msg // JS.console.log("Server: " + msg)
+        JS.console.log("Server: " + msg)
 
     //let log (msg : string) =  () //JS.console.log(msg)
 
@@ -84,19 +92,22 @@ type Server() =
         let! userOrVisitor = promise {
             try
                 // We may already have an active session, so pick it up
-                let! session = (sdk.account.get() : JS.Promise<Schema.User>)
+                let! session = (account.get() : JS.Promise<Schema.User>)
                 logDebug(" - resume session: " + session.email)
                 return session
             with
             |x ->
-                let! session = sdk.account.createSession(visitorEmail, "doodletoy")
-                logDebug($" no session ({x.Message}) - create visitor session")
-                return! sdk.account.get()
+                let! session = account.createEmailSession(visitorEmail,visitorP)
+                logDebug($" no session ({x.Message}) -create visitor session {session}")
+                JS.console.log(session) // Successful
+                let! user = account.get() // throws exception
+                logDebug($" account.get") // Not reached
+                return user
         }
 
         let! isAdminTeam = promise {
             try
-                let! _ = sdk.teams.get( adminTeamId )
+                let! _ = teams.get( adminTeamId )
                 return true
             with _ ->
                 return false
@@ -104,7 +115,7 @@ type Server() =
 
         let! config = promise {
             try
-                let! configResult = sdk.database.listDocuments(configurationCollectionId) :> JS.Promise<Models.DocumentList<Configuration>>
+                let! configResult = db.listDocuments(databaseId, configurationCollectionId) :> JS.Promise<Models.DocumentList<Configuration>>
                 match configResult.total with
                 | 0.0 -> return Configuration.Create()
                 | _ -> return configResult.documents.[0]
@@ -129,7 +140,7 @@ type Server() =
 
     let initSdk() =
         logDebug("initSdk")
-        sdk
+        client
             .setEndpoint(serviceUrl)
             .setProject(doodlesProjectID)
             |> ignore
@@ -165,6 +176,33 @@ type Server() =
     member _.SessionUser = current().User
     member _.Configuration = current().Configuration
 
+    static member Test() =
+        promise {
+            JS.console.log("## Test")
+
+            let client = Appwrite.Client.Create()
+            let account = Appwrite.Account.Create(client)
+
+            client
+                .setEndpoint(serviceUrl)
+                .setProject(doodlesProjectID)
+                |> ignore
+
+            JS.console.log("- sdk, endpoint and project initialized")
+
+            let! session = account.createEmailSession( visitorEmail, visitorP )
+
+            JS.console.log("- session created") // Successful
+            JS.console.log( session )
+
+            let! user = account.get() // throws exception 401 Unauthorized
+
+            JS.console.log("- user")
+            JS.console.log( user )
+
+            return ()
+        }
+
     member this.Init( dispatchExternal : ExternalMessage -> unit, urlParams : Map<string,string> ) =
         promise {
             dispatch <- dispatchExternal
@@ -178,7 +216,7 @@ type Server() =
                 Browser.Dom.history.pushState(null, "", Browser.Dom.window.location.href.Split('?').[0])
 
                 try
-                    let! _ = sdk.account.updateVerification(userId, secret)
+                    let! _ = account.updateVerification(userId, secret)
                     do! this.SignOut()
 
                     (Ok "Email verified - please sign in") |> Verified |> dispatch
@@ -192,13 +230,13 @@ type Server() =
 
     member _.SendVerificationEmail() =
         promise {
-            let! _ = sdk.account.createVerification( appUrl )
+            let! _ = account.createVerification( appUrl )
             return ()
         }
 
     member this.Register(email:string, password:string, name : string) =
         promise {
-            let! _ = sdk.account.create(email, password, name)
+            let! _ = account.create( "ID.unique()", email, password, name)
             do! this.SignIn(email,password)
         }
 
@@ -206,14 +244,14 @@ type Server() =
         logDebug($"SignIn: {email}")
         promise {
             try
-                let! _ = sdk.account.deleteSession "current"
+                let! _ = account.deleteSession "current"
                 logDebug("Signed out")
                 ()
             with
                 _ -> ()
 
             logDebug("createSession")
-            let! _ = sdk.account.createSession(email,password)
+            let! _ = account.create("ID.unique()", email, password )
 
             logDebug("starting session")
             do! startSession()
@@ -221,14 +259,20 @@ type Server() =
 
     member _.SignInWith(provider : string) =
         logDebug($"SignInWith: {provider}")
-        sdk.account.deleteSession "current"
+        account.deleteSession "current"
         |> ignoreError (fun () -> // FIXME
-            sdk.account.createOAuth2Session( provider, appUrl, appUrl ) |> ignore
+            account.createOAuth2Session( provider, appUrl, appUrl ) |> ignore
         )
 
     member _.NumLikes( t : Doodle ) : JS.Promise<int> =
         promise {
-            let! likes = sdk.database.listDocuments( likesCollectionId, [| "doodleId=" + t._id |] )
+            let! likes = db.listDocuments(
+                databaseId,
+                likesCollectionId,
+                [|
+                    Appwrite.Query.equal("doodleId", t._id |> U3.Case1 |> U2.Case1)
+                    //"doodleId=" + t._id
+                    |] )
             return likes.documents.Length
         }
 
@@ -238,10 +282,21 @@ type Server() =
             let! allViews = x.Views(id)
             let! _ =
                 if allViews.Length = 0 then
-                    sdk.database.createDocument(viewsCollectionId, id, Views.Create(id), [|"role:all"|], [|"role:all"|])
+                    db.createDocument(
+                        databaseId,
+                        viewsCollectionId,
+                        id,
+                        Views.Create(id),
+                        [|
+                            Appwrite.Permission.read(Appwrite.Role.any())
+                            Appwrite.Permission.update(Appwrite.Role.any())
+                            Appwrite.Permission.delete(Appwrite.Role.any())
+                        |]
+                        //([|"role:all"|], [|"role:all"|])
+                    )
                 else
                     let r = allViews.[0].Increment()
-                    sdk.database.updateDocument(viewsCollectionId,r._id,r)
+                    db.updateDocument( databaseId, viewsCollectionId,r._id,r)
 
             return ()
         }
@@ -264,21 +319,23 @@ type Server() =
 
     member _.RemoveLike( l : Like ) : JS.Promise<unit> =
         promise {
-            let! _ = sdk.database.deleteDocument( likesCollectionId, l._id )
+            let! _ = db.deleteDocument( databaseId, likesCollectionId, l._id )
             return ()
         }
 
     member _.CreateLike( t: Doodle, u : User ) : JS.Promise<Like> =
-        sdk.database.createDocument( likesCollectionId, "unique()", Like.Create(t,u), [| "role:all" |] )
+        db.createDocument( databaseId, likesCollectionId, "unique()", Like.Create(t,u), [| "role:all" |] )
 
     member _.FindLike( t: Doodle, u : User ) =
         promise {
             let! like =
-                sdk.database.listDocuments(
+                db.listDocuments(databaseId,
                     likesCollectionId,
                     [|
-                        "doodleId.equal(\"" + t._id + "\")"
-                        "userId.equal(\"" + u.``$id`` + "\")"
+                        Appwrite.Query.equal("doodleId", t._id |> U3.Case1 |> U2.Case1)
+                        Appwrite.Query.equal("userId", u.``$id`` |> U3.Case1 |> U2.Case1)
+                        //"doodleId.equal(\"" + t._id + "\")"
+                        //"userId.equal(\"" + u.``$id`` + "\")"
                     |]
                 ) //: JS.Promise<ListDocumentsResult<Like>>
 
@@ -292,17 +349,38 @@ type Server() =
         let data = current().Configuration.Update( featured = d._id  )
         //data.featured <- d._id
         if String.IsNullOrEmpty(data._id) then
-            let! newconfig = sdk.database.createDocument(configurationCollectionId, "unique()", data, [| "role:all" |], [| $"team:{adminTeamId}"|] )
+            let! newconfig = db.createDocument(
+                databaseId,
+                configurationCollectionId,
+                "unique()",
+                data,
+                [|
+                    Appwrite.Permission.read(Appwrite.Role.any())
+                    Appwrite.Permission.update(Appwrite.Role.team(adminTeamId, ""))
+                    Appwrite.Permission.delete(Appwrite.Role.team(adminTeamId, ""))
+                |]
+                //[| "role:all" |], [| $"team:{adminTeamId}"|]
+            )
             setConfiguration(newconfig)
         else
-            let! _ = sdk.database.updateDocument(configurationCollectionId,data._id,data, [| "role:all" |], [| $"team:{adminTeamId}"|] )
+            let! _ = db.updateDocument(
+                databaseId,
+                configurationCollectionId,
+                data._id,
+                data,
+                [|
+                    Appwrite.Permission.read(Appwrite.Role.any())
+                    Appwrite.Permission.update(Appwrite.Role.team(adminTeamId, ""))
+                    Appwrite.Permission.delete(Appwrite.Role.team(adminTeamId, ""))
+                |]
+            )
             setConfiguration(data)
     }
 
     member _.SignOut() =
         promise {
             try
-                let! _ = sdk.account.deleteSession "current"
+                let! _ = account.deleteSession "current"
                 ()
             with x ->
                 logError("SignOut: " + x.Message)
@@ -313,20 +391,22 @@ type Server() =
 
     member x.ListAll<'T when 'T :> Models.Document>( collectionId : string, filter : string array ) : JS.Promise<'T array> =
         promise {
-            let mutable chunks : ('T array) list = []
-            let mutable received = 0
-            let mutable total = 999 // Yuck. Allow initial iteration (received < total)
+            // let mutable chunks : ('T array) list = []
+            // let mutable received = 0
+            // let mutable total = 999 // Yuck. Allow initial iteration (received < total)
 
-            while received < total do
-                let! chunk = sdk.database.listDocuments(collectionId, filter, 25.0, float received) //: JS.Promise<ListDocumentsResult<'T>>
+            // while received < total do
+            //     let! chunk = db.listDocuments(databaseId, collectionId, filter, 25.0, float received) //: JS.Promise<ListDocumentsResult<'T>>
 
-                if (received = 0) then
-                    total <- int(chunk.total)
+            //     if (received = 0) then
+            //         total <- int(chunk.total)
 
-                received <- received + chunk.documents.Length
-                chunks <- chunk.documents :: chunks
+            //     received <- received + chunk.documents.Length
+            //     chunks <- chunk.documents :: chunks
 
-            return chunks |> Array.concat
+            // return chunks |> Array.concat
+            let! docs = db.listDocuments(databaseId, collectionId, filter)
+            return docs.documents
         }
 
     member x.AllLikes() : JS.Promise<Like array>=
@@ -336,13 +416,23 @@ type Server() =
         x.ListAll<Views>( viewsCollectionId, [| |])
 
     member x.Likes( d : Doodle) =
-        x.ListAll<Like>( likesCollectionId, [| "doodleId.equal(\"" + d._id + "\")" |] )
-        //let likes = sdk.database.listDocuments( likesCollectionId, [| "doodleId=" + d._id |] ) : JS.Promise<ListDocumentsResult<Like>>
+        x.ListAll<Like>( likesCollectionId,
+            [|
+                Appwrite.Query.equal( "doodleId", d._id |> U3.Case1 |> U2.Case1 )
+                //"doodleId.equal(\"" + d._id + "\")"
+            |]
+        )
+        //let likes = db.listDocuments( likesCollectionId, [| "doodleId=" + d._id |] ) : JS.Promise<ListDocumentsResult<Like>>
         //likes |> Promise.map (fun r -> r.documents)
 
     member x.Views( id : string ) : JS.Promise<Views[]> =
-        x.ListAll<Views>( viewsCollectionId, [| "doodleId.equal(\"" + id + "\")" |] )
-        //let views = sdk.database.listDocuments( viewsCollectionId, [| "doodleId=" + id |] ) : JS.Promise<ListDocumentsResult<Views>>
+        x.ListAll<Views>(
+            viewsCollectionId,
+            [|
+                Appwrite.Query.equal( "doodleId", id |> U3.Case1 |> U2.Case1 )
+                //"doodleId.equal(\"" + id + "\")"
+            |] )
+        //let views = db.listDocuments( viewsCollectionId, [| "doodleId=" + id |] ) : JS.Promise<ListDocumentsResult<Views>>
         //views |> Promise.map (fun r -> r.documents)
 
     member x.GetDoodleView( d: string ) : JS.Promise<DoodleView> =
@@ -383,10 +473,10 @@ type Server() =
         }
 
     member _.DeleteDoodle( id : string ) =
-        sdk.database.deleteDocument(doodlesCollectionID,id)
+        db.deleteDocument(databaseId, doodlesCollectionID,id)
 
     member _.GetDoodle( id : string ) =
-        sdk.database.getDocument(doodlesCollectionID,id)
+        db.getDocument(databaseId, doodlesCollectionID,id)
 
     member x.GetCachedDoodle( id : string ) : JS.Promise<DoodleView> =
         promise {
@@ -405,7 +495,7 @@ type Server() =
     member x.AllDoodles() =
         x.ListAll(doodlesCollectionID, [| |])
     // promise {
-    //         let! doodles = sdk.database.listDocuments(doodlesCollectionID) : JS.Promise<ListDocumentsResult<Doodle>>
+    //         let! doodles = db.listDocuments(doodlesCollectionID) : JS.Promise<ListDocumentsResult<Doodle>>
 
     //         //doodlesById <- doodles.documents |> Array.map (fun d -> d._id,d) |> Map.ofArray
 
@@ -417,7 +507,10 @@ type Server() =
             let! doodles =
                 x.ListAll<Doodle>(
                     doodlesCollectionID,
-                    [| "ownedBy.equal(\"" + id + "\")" |]
+                    [|
+                        Appwrite.Query.equal( "ownedBy", id |> U3.Case1 |> U2.Case1 )
+                        //"ownedBy.equal(\"" + id + "\")"
+                    |]
                 )
 
             let! result = doodles |> Array.map x.GetCachedDoodleView |> Promise.all
@@ -472,9 +565,9 @@ type Server() =
 
             let! saved =
                 if String.IsNullOrEmpty(id) then
-                    sdk.database.createDocument(doodlesCollectionID, "unique()", d, [| "role:all" |] )
+                    db.createDocument(databaseId, doodlesCollectionID, "unique()", d, [| "role:all" |] )
                 else
-                    sdk.database.updateDocument(doodlesCollectionID, id, d, [| "role:all" |])
+                    db.updateDocument(databaseId, doodlesCollectionID, id, d, [| "role:all" |])
 
             let! view = x.GetCachedDoodle(saved.``$id``)
             doodlesById <- doodlesById.Add(saved.``$id``, { view with Doodle = saved })
@@ -482,11 +575,11 @@ type Server() =
             return saved
         }
 
-    member _.Iter ( f : Appwrite -> unit ) =
-        sdk |> f
+    member _.Iter ( f : Databases.Databases -> unit ) =
+        db |> f
 
-    member _.Map<'T>( f : Appwrite -> 'T ) =
-        sdk |> f
+    member _.Map<'T>( f : Databases.Databases -> 'T ) =
+        db |> f
 
     static member DateTimeNow =
         Math.Truncate(double(DateTime.UtcNow.Ticks) / double(TimeSpan.TicksPerSecond))
@@ -499,13 +592,14 @@ type DoodleSession(server : Server, user : User) =
 
     member _.Server = server
 
-    member _.Post(message: string) =
-        server.Map (fun sdk ->
-            sdk.database.createDocument(
-                chatCollectionID,
-                "unique()",
-                {| message = message; user = user.name; ts = System.DateTime.Now.Ticks |}
-            ))
+    // member _.Post(message: string) =
+    //     server.Map (fun db ->
+    //         db.createDocument(
+    //             databaseId,
+    //             chatCollectionID,
+    //             "unique()",
+    //             {| message = message; user = user.name; ts = System.DateTime.Now.Ticks |}
+    //         ))
 
     member this.SaveAsNew( doc : Types.Schema.Doodle ) : JS.Promise<Schema.Doodle> =
         //this.Save( { doc with ``$id`` = jsUndefined :?> string } )

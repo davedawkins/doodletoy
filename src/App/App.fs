@@ -315,5 +315,10 @@ let view() =
         ]
     ] |> withStyle appStyle
 
+open Fable.Core.JsInterop
 
+// Server.Test()
+//     .``then``( fun() -> Fable.Core.JS.console.log("Test completed") )
+//     .catch (fun x -> Fable.Core.JS.console.log("Test failed ", x))
+//     |> ignore
 view() |> Program.mountElement "sutil-app"
