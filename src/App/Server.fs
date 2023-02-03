@@ -15,18 +15,13 @@ let appUrl = "https://doodletoy.net/"
 
 let private chatCollectionID = "617c11bb63b82"
 
-//let private serviceUrl = "https://solochimp.com/v1"
 let private serviceUrl = "https://appwrite.doodletoy.net/v1"
-//let private serviceUrl = "https://localhost/v1"
 let private doodlesProjectID = "619bd8cd83fa8"
 let private doodlesCollectionID = "619bd92054698"
 let private likesCollectionId = "619bda17062c0"
 let private viewsCollectionId = "619bda67c7d02"
-let private visitorName = "visitor"
-let private visitorEmail = "visitor@solochimp.com"
 let private adminTeamId = "619d6583db1da"
 let private configurationCollectionId = "619dfd44d6fb5"
-let private visitorP = "doodletoy"
 let private databaseId = "default"
 
 type ServerModel = {
@@ -54,13 +49,23 @@ type Server() =
     let db = Appwrite.Databases.Create(client)
     let perm = Appwrite.Permission.Create()
 
+    let allowAny = [|
+        Appwrite.Permission.read( Appwrite.Role.any() )
+        Appwrite.Permission.write( Appwrite.Role.any() )
+        Appwrite.Permission.update( Appwrite.Role.any() )
+        Appwrite.Permission.delete( Appwrite.Role.any() )
+    |]
+
     let logUser (userOpt : Schema.User option) =
         userOpt |> function Some u -> JS.console.dir(u) | None -> ()
         userOpt
 
     let filterVisitor (userOpt : Schema.User option) =
         match userOpt with
-        | Some u when u.email = "" || u.email = visitorEmail ->
+        | Some u when
+                    u.email = ""
+                    //|| u.email = visitorEmail
+                    ->
             None
         | Some u ->
             userOpt
@@ -74,7 +79,7 @@ type Server() =
         JS.console.error(msg)
 
     let logDebug (msg : string) =
-        JS.console.log("Server: " + msg)
+        ignore msg //JS.console.log("Server: " + msg)
 
     //let log (msg : string) =  () //JS.console.log(msg)
 
@@ -94,15 +99,10 @@ type Server() =
                 // We may already have an active session, so pick it up
                 let! session = (account.get() : JS.Promise<Schema.User>)
                 logDebug(" - resume session: " + session.email)
-                return session
+                return Some session
             with
             |x ->
-                let! session = account.createEmailSession(visitorEmail,visitorP)
-                logDebug($" no session ({x.Message}) -create visitor session {session}")
-                JS.console.log(session) // Successful
-                let! user = account.get() // throws exception
-                logDebug($" account.get") // Not reached
-                return user
+                return None
         }
 
         let! isAdminTeam = promise {
@@ -126,7 +126,9 @@ type Server() =
         }
 
         let sessionUser =
-            userOrVisitor |> Some |> filterVisitor
+            userOrVisitor
+            //|> Some
+            |> filterVisitor
             |> Option.map (fun u -> {
                 SessionUser.User = u
                 SessionUser.IsAdmin = isAdminTeam
@@ -190,7 +192,8 @@ type Server() =
 
             JS.console.log("- sdk, endpoint and project initialized")
 
-            let! session = account.createEmailSession( visitorEmail, visitorP )
+            // This user doesn't exist
+            let! session = account.createEmailSession( "test@test.com", "test" )
 
             JS.console.log("- session created") // Successful
             JS.console.log( session )
@@ -251,7 +254,7 @@ type Server() =
                 _ -> ()
 
             logDebug("createSession")
-            let! _ = account.create("ID.unique()", email, password )
+            let! _ = account.createEmailSession( email, password )
 
             logDebug("starting session")
             do! startSession()
@@ -286,17 +289,13 @@ type Server() =
                         databaseId,
                         viewsCollectionId,
                         id,
-                        Views.Create(id),
-                        [|
-                            Appwrite.Permission.read(Appwrite.Role.any())
-                            Appwrite.Permission.update(Appwrite.Role.any())
-                            Appwrite.Permission.delete(Appwrite.Role.any())
-                        |]
+                        Models.Document.Omit(Views.Create(id)),
+                        allowAny
                         //([|"role:all"|], [|"role:all"|])
                     )
                 else
                     let r = allViews.[0].Increment()
-                    db.updateDocument( databaseId, viewsCollectionId,r._id,r)
+                    db.updateDocument( databaseId, viewsCollectionId, r._id, Models.Document.Omit(r) )
 
             return ()
         }
@@ -324,7 +323,7 @@ type Server() =
         }
 
     member _.CreateLike( t: Doodle, u : User ) : JS.Promise<Like> =
-        db.createDocument( databaseId, likesCollectionId, "unique()", Like.Create(t,u), [| "role:all" |] )
+        db.createDocument( databaseId, likesCollectionId, "unique()", Like.Create(t,u), allowAny )
 
     member _.FindLike( t: Doodle, u : User ) =
         promise {
@@ -565,9 +564,9 @@ type Server() =
 
             let! saved =
                 if String.IsNullOrEmpty(id) then
-                    db.createDocument(databaseId, doodlesCollectionID, "unique()", d, [| "role:all" |] )
+                    db.createDocument(databaseId, doodlesCollectionID, "unique()", Models.Document.Omit(d), allowAny)
                 else
-                    db.updateDocument(databaseId, doodlesCollectionID, id, d, [| "role:all" |])
+                    db.updateDocument(databaseId, doodlesCollectionID, id, Models.Document.Omit(d), allowAny )
 
             let! view = x.GetCachedDoodle(saved.``$id``)
             doodlesById <- doodlesById.Add(saved.``$id``, { view with Doodle = saved })
