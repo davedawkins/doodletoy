@@ -4,7 +4,7 @@ open Sutil
 open type Feliz.length
 open AppwriteSdk
 open Server
-open Sutil.DOM
+open Sutil.CoreElements
 open Sutil.Styling
 open UI
 open Types
@@ -260,7 +260,7 @@ let appStyle = [
         Css.padding (rem 1)
     ]
 
-    Media.MinWidth( UI.BreakPoint, [
+    CssMedia.minWidth( UI.BreakPoint, [
         rule ".page-content" [
             Css.paddingTop (rem 2)
             Css.paddingBottom (rem 1)
@@ -276,7 +276,7 @@ let view() =
 
     let model, dispatch = server |> Store.makeElmish init (update server false) ignore
 
-    let unsubnav = Navigable.listenLocation UrlParser.parseMessage (fun d -> logDebug "location dispatch"; dispatch d)
+    let unsubnav = Navigable.listenLocation (UrlParser.parseMessage, fun d -> logDebug "location dispatch"; dispatch d)
 
     Html.div [
         unsubscribeOnUnmount [ unsubnav ]
@@ -321,4 +321,4 @@ open Fable.Core.JsInterop
 //     .``then``( fun() -> Fable.Core.JS.console.log("Test completed") )
 //     .catch (fun x -> Fable.Core.JS.console.log("Test failed ", x))
 //     |> ignore
-view() |> Program.mountElement "sutil-app"
+view() |> Program.mount

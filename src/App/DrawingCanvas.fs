@@ -3,7 +3,9 @@ module Fable.DrawingCanvas
 open System
 open Fable.Core
 open Sutil
-open Sutil.DOM
+open Sutil.Core
+open Sutil.CoreElements
+open Sutil.DomHelpers
 open Browser.Types
 open Fable.Core.JS
 
@@ -404,7 +406,7 @@ let DrawingCanvas (props : seq<SutilElement>) (options : DrawingCanvasOptions) =
 
     Html.canvas [
         unsubscribeOnUnmount [cleanup]
-        Sutil.DOM.host render
+        host render
         yield! props
         match options.OnMouseMove with
         | None -> fragment []

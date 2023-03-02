@@ -30,7 +30,7 @@ let view (sendEmail : bool) (server : Server) =
     let model, dispatch = (sendEmail,server) |> Store.makeElmish init (update server) ignore
 
     Html.div [
-        DOM.disposeOnUnmount [ model ]
+        CoreElements.disposeOnUnmount [ model ]
 
         Attr.style [
             Css.textAlignCenter

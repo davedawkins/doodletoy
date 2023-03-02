@@ -1,7 +1,6 @@
 module Login
 
 open Sutil
-open Sutil.Attr
 open Feliz
 open type Feliz.length
 open Sutil.Styling
@@ -112,8 +111,7 @@ let view (server : Server) =
             ]
         ]
 
-        Html.div [
-            class' "status"
+        Html.divc "status" [
             Html.text (model .> (fun m -> m.Status))
         ]
 

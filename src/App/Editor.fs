@@ -6,7 +6,6 @@ open UI
 open Fable.DrawingCanvas
 open Fable.DrawingCanvas.Builder
 open type Feliz.length
-open Sutil.DOM
 open Types
 open System
 open Sutil.Styling
@@ -21,7 +20,7 @@ module Ticker =
         let mutable stop : unit -> unit = ignore
         let mutable tick : int = 0
         let s = ObservableStore.makeStore init (fun v -> stop(); dispose v)
-        stop <- DOM.interval
+        stop <- DomHelpers.interval
             (fun _ ->
                 tick <- tick + 1
                 s |> Store.modify (value tick)
@@ -215,7 +214,7 @@ let style = [
         Css.gap (rem 2)
     ]
 
-    Media.MinWidth( UI.BreakPoint, [
+    CssMedia.minWidth( UI.BreakPoint, [
         rule ".editor-container" [
             Css.displayFlex
             Css.flexDirectionRow
@@ -264,7 +263,7 @@ let style = [
         Css.height (px 710)
     ]
 
-    Media.MinWidth( UI.BreakPoint,[
+    CssMedia.minWidth( UI.BreakPoint,[
         rule ".doodle-editor" [
             Css.width (px 500)
             Css.minWidth (px 400)

@@ -8,7 +8,7 @@ open AppwriteSdk
 open UI
 open type Feliz.length
 open type Feliz.borderStyle
-open Sutil.DOM
+open Sutil.CoreElements
 
 type Model = {
     Doodles : DoodleView list
@@ -76,7 +76,7 @@ let style = [
         Css.borderTop(px 1, solid, "#dddddd")
     ]
 
-    Media.MinWidth(UI.BreakPoint, [
+    CssMedia.minWidth(UI.BreakPoint, [
         rule ".doodle-grid" [
             Css.gridTemplateColumns( [fr 3; fr 8; fr 1; fr 3; fr 3; fr 1] )
         ]
@@ -119,7 +119,7 @@ let style = [
         Css.displayNone
     ]
 
-    Media.MinWidth(UI.BreakPoint,[
+    CssMedia.minWidth(UI.BreakPoint,[
         rule ".if-wide" [
             Css.displayInheritFromParent
         ]

@@ -1,6 +1,5 @@
 module Types
 
-open Sutil.DOM
 open AppwriteSdk
 open System
 open Fable.Core.Util

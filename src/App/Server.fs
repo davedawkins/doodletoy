@@ -239,7 +239,7 @@ type Server() =
 
     member this.Register(email:string, password:string, name : string) =
         promise {
-            let! _ = account.create( "ID.unique()", email, password, name)
+            let! _ = account.create( Appwrite.ID.unique(), email, password, name)
             do! this.SignIn(email,password)
         }
 
@@ -389,24 +389,7 @@ type Server() =
         }
 
     member x.ListAll<'T when 'T :> Models.Document>( collectionId : string, filter : string array ) : JS.Promise<'T array> =
-        promise {
-            // let mutable chunks : ('T array) list = []
-            // let mutable received = 0
-            // let mutable total = 999 // Yuck. Allow initial iteration (received < total)
-
-            // while received < total do
-            //     let! chunk = db.listDocuments(databaseId, collectionId, filter, 25.0, float received) //: JS.Promise<ListDocumentsResult<'T>>
-
-            //     if (received = 0) then
-            //         total <- int(chunk.total)
-
-            //     received <- received + chunk.documents.Length
-            //     chunks <- chunk.documents :: chunks
-
-            // return chunks |> Array.concat
-            let! docs = db.listDocuments(databaseId, collectionId, filter)
-            return docs.documents
-        }
+        db.ListAll( databaseId, collectionId, filter )
 
     member x.AllLikes() : JS.Promise<Like array>=
         x.ListAll<Like>( likesCollectionId, [| |])

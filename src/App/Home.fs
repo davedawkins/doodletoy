@@ -1,8 +1,8 @@
 module Home
 
 open Sutil
-open Sutil.DOM
-open Sutil.Bindings
+open Sutil.CoreElements
+open Sutil.DomHelpers
 open Server
 open Types
 open UI
@@ -61,7 +61,7 @@ let style = [
         Css.flexDirectionColumnReverse
     ]
 
-    Media.MinWidth( UI.BreakPoint, [
+    CssMedia.minWidth( UI.BreakPoint, [
         rule ".feature-welcome" [
             Css.flexDirectionRow
             Css.gap (rem 5)
@@ -89,7 +89,7 @@ let style = [
         Css.gap (rem 2)
     ]
 
-    Media.MinWidth( UI.BreakPoint, [
+    CssMedia.minWidth( UI.BreakPoint, [
         rule ".card" [
             Css.gridTemplateColumns(2,fr 1)
         ]
@@ -160,7 +160,7 @@ let style = [
     rule ".view i" [
         Css.fontSize (percent 100)
     ]
-    Media.MinWidth(UI.BreakPoint, [
+    CssMedia.minWidth(UI.BreakPoint, [
         rule ".view" [
             Css.width (vh 75)
         ]

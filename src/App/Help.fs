@@ -4,7 +4,7 @@ open Sutil
 open Types
 open Server
 open Sutil.Styling
-open Sutil.DOM
+open Sutil.CoreElements
 open Fetch
 open Fable.Formatting.Markdown
 open type Feliz.length

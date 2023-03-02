@@ -1,8 +1,8 @@
 module Browse
 
 open Sutil
-open Sutil.DOM
-open Sutil.Bindings
+open Sutil.CoreElements
+open Sutil.DomHelpers
 open Server
 open Types
 open UI
@@ -101,7 +101,7 @@ module DoodleView =
             Css.margin(px 0, auto)
         ]
 
-        Media.MinWidth( UI.BreakPoint, [
+        CssMedia.minWidth( UI.BreakPoint, [
             rule ".doodle-card" [
                 Css.width (vh 75)
             ]
@@ -135,7 +135,7 @@ module DoodleView =
             Store.set drawingS (make())
         let mutable stopAnimate = ignore
         let startAnimate() =
-            stopAnimate <- DOM.interval refresh 40
+            stopAnimate <- interval refresh 40
 
         if options.Animation = Always then startAnimate()
 

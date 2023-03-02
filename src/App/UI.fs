@@ -1,9 +1,9 @@
 module UI
 
 open Sutil
-open Sutil.Html
-open Sutil.DOM
 open Sutil.Styling
+open Sutil.Core
+
 open type Feliz.length
 
 open Fable.Core.JsInterop
@@ -51,7 +51,7 @@ let headerStyle = [
         Css.displayNone
     ]
 
-    Media.MinWidth( BreakPoint, [
+    CssMedia.minWidth( BreakPoint, [
 
         rule ".if-wide" [
             Css.displayInheritFromParent
@@ -210,7 +210,7 @@ type UI =
     static member modal (options : ModalOptions)=
         let doc = Browser.Dom.document
         let lastBodyElement : Browser.Types.HTMLElement = doc.body?lastElementChild
-        let close() = DOM.unmount (doc.querySelector("#ui-modal"))
+        let close() = Program.unmount (doc.querySelector("#ui-modal"))
         let modalBg =
             Html.div [
                 Attr.id "ui-modal"
@@ -270,4 +270,4 @@ type UI =
                         ]
                 ]
             ]
-        Sutil.DOM.mountAfter modalBg lastBodyElement |> ignore
+        (lastBodyElement,modalBg)|> Program.mountAfter |> ignore
